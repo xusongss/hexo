@@ -21,7 +21,7 @@ tags:
 * 模拟client-worker集群
 * 构建可扩展的请求-应答集群云
 * 使用管道套接字监控线程
-
+<!--more-->
 ### Request-Reply Envelopes
 
 在请求-应答模式中，信封里保存了应答目标的位置。这就是为什么ØMQ网络虽然是无状态的，但仍能完成请求-应答的过程。
@@ -156,33 +156,33 @@ REP要求消息中的信封由一个空帧结束，所以如果你没有用REQ�
 **identity.c**
 
 ```c
-// 
+//
 // 以下程序演示了如何在请求-应答模式中使用套接字标识。
 // 需要注意的是s_开头的函数是由zhelpers.h提供的。
 // 我们没有必要重复编写那些代码。
 //
 #include "zhelpers.h"
- 
+
 int main (void)
 {
     void *context = zmq_init (1);
- 
+
     void *sink = zmq_socket (context, ZMQ_ROUTER);
     zmq_bind (sink, "inproc://example");
- 
+
     // 第一个套接字由0MQ自动设置标识
     void *anonymous = zmq_socket (context, ZMQ_REQ);
     zmq_connect (anonymous, "inproc://example");
     s_send (anonymous, "ROUTER uses a generated UUID");
     s_dump (sink);
- 
+
     // 第二个由自己设置
     void *identified = zmq_socket (context, ZMQ_REQ);
     zmq_setsockopt (identified, ZMQ_IDENTITY, "Hello", 5);
     zmq_connect (identified, "inproc://example");
     s_send (identified, "ROUTER socket uses REQ's socket identity");
     s_dump (sink);
- 
+
     zmq_close (sink);
     zmq_close (anonymous);
     zmq_close (identified);
@@ -290,7 +290,7 @@ ROUTER-DEALER路由可以用来做什么呢？如果DEALER会将它完成任务�
 //
 #include "zhelpers.h"
 #include <pthread.h>
- 
+
 // 这里定义了两个worker，其代码是一样的。
 //
 static void *
@@ -300,7 +300,7 @@ worker_task_a (void *args)
     void *worker = zmq_socket (context, ZMQ_DEALER);
     zmq_setsockopt (worker, ZMQ_IDENTITY, "A", 1);
     zmq_connect (worker, "ipc://routing.ipc");
- 
+
     int total = 0;
     while (1) {
         // 我们只接受到消息的第二部分
@@ -317,7 +317,7 @@ worker_task_a (void *args)
     zmq_term (context);
     return NULL;
 }
- 
+
 static void *
 worker_task_b (void *args)
 {
@@ -325,7 +325,7 @@ worker_task_b (void *args)
     void *worker = zmq_socket (context, ZMQ_DEALER);
     zmq_setsockopt (worker, ZMQ_IDENTITY, "B", 1);
     zmq_connect (worker, "ipc://routing.ipc");
- 
+
     int total = 0;
     while (1) {
         // 我们只接受到消息的第二部分
@@ -342,20 +342,20 @@ worker_task_b (void *args)
     zmq_term (context);
     return NULL;
 }
- 
+
 int main (void)
 {
     void *context = zmq_init (1);
     void *client = zmq_socket (context, ZMQ_ROUTER);
     zmq_bind (client, "ipc://routing.ipc");
- 
+
     pthread_t worker;
     pthread_create (&worker, NULL, worker_task_a, NULL);
     pthread_create (&worker, NULL, worker_task_b, NULL);
- 
+
     // 等待线程连接至套接字，否则我们发送的消息将不能被正确路由
     sleep (1);
- 
+
     // 发送10个任务，给A两倍多的量
     int task_nbr;
     srandom ((unsigned) time (NULL));
@@ -365,16 +365,16 @@ int main (void)
             s_sendmore (client, "A");
         else
             s_sendmore (client, "B");
- 
+
         // 然后是任务
         s_send (client, "This is the workload");
     }
     s_sendmore (client, "A");
     s_send (client, "END");
- 
+
     s_sendmore (client, "B");
     s_send (client, "END");
- 
+
     zmq_close (client);
     zmq_term (context);
     return 0;
@@ -455,24 +455,24 @@ ROUTER-REQ模式可以用来做什么？最常用的做法就是最近最少使�
 //
 #include "zhelpers.h"
 #include <pthread.h>
- 
+
 #define NBR_WORKERS 10
- 
+
 static void *
 worker_task(void *args) {
     void *context = zmq_init(1);
     void *worker = zmq_socket(context, ZMQ_REQ);
- 
+
     // s_set_id()函数会根据套接字生成一个可打印的字符串，
-    // 并以此作为该套接字的标识。 
+    // 并以此作为该套接字的标识。
     s_set_id(worker);
     zmq_connect(worker, "ipc://routing.ipc");
- 
+
     int total = 0;
     while (1) {
 	    // 告诉ROUTER我已经准备好了
         s_send(worker, "ready");
- 
+
         // 从ROUTER中获取工作，直到收到结束的信息
         char *workload = s_recv(worker);
         int finished = (strcmp(workload, "END") == 0);
@@ -482,7 +482,7 @@ worker_task(void *args) {
             break;
         }
         total++;
- 
+
         // 随机等待一段时间
         s_sleep(randof(1000) + 1);
     }
@@ -490,13 +490,13 @@ worker_task(void *args) {
     zmq_term(context);
     return NULL;
 }
- 
+
 int main(void) {
     void *context = zmq_init(1);
     void *client = zmq_socket(context, ZMQ_ROUTER);
     zmq_bind(client, "ipc://routing.ipc");
     srandom((unsigned) time(NULL));
- 
+
     int worker_nbr;
     for (worker_nbr = 0; worker_nbr < NBR_WORKERS; worker_nbr++) {
         pthread_t worker;
@@ -510,7 +510,7 @@ int main(void) {
         free(empty);
         char *ready = s_recv(client);
         free(ready);
- 
+
         s_sendmore(client, address);
         s_sendmore(client, "");
         s_send(client, "This is the workload");
@@ -523,7 +523,7 @@ int main(void) {
         free(empty);
         char *ready = s_recv(client);
         free(ready);
- 
+
         s_sendmore(client, address);
         s_sendmore(client, "");
         s_send(client, "END");
@@ -640,22 +640,22 @@ REP套接字有两个特点：
 //  自定义ROUTER-REP路由
 //
 #include "zhelpers.h"
- 
+
 //  这里使用一个进程来强调事件发生的顺序性
-int main (void) 
+int main (void)
 {
     void *context = zmq_init (1);
- 
+
     void *client = zmq_socket (context, ZMQ_ROUTER);
     zmq_bind (client, "ipc://routing.ipc");
- 
+
     void *worker = zmq_socket (context, ZMQ_REP);
     zmq_setsockopt (worker, ZMQ_IDENTITY, "A", 1);
     zmq_connect (worker, "ipc://routing.ipc");
- 
+
     //  等待worker连接
     sleep (1);
- 
+
     //  发送REP的标识、地址、空帧、以及消息内容
     s_sendmore (client, "A");
     s_sendmore (client, "address 3");
@@ -663,16 +663,16 @@ int main (void)
     s_sendmore (client, "address 1");
     s_sendmore (client, "");
     s_send     (client, "This is the workload");
- 
+
     //  worker只会得到消息内容
     s_dump (worker);
- 
+
     //  worker不需要处理信封
     s_send (worker, "This is the reply");
- 
+
     //  看看ROUTER里收到了什么
     s_dump (client);
- 
+
     zmq_close (client);
     zmq_close (worker);
     zmq_term (context);
@@ -821,13 +821,13 @@ Figure # - Stretched request-reply with LRU
 //
 #include "zhelpers.h"
 #include <pthread.h>
- 
+
 #define NBR_CLIENTS 10
 #define NBR_WORKERS 3
- 
+
 //  出队操作，使用一个可存储任何类型的数组实现
 #define DEQUEUE(q) memmove (&(q)[0], &(q)[1], sizeof (q) - sizeof (q [0]))
- 
+
 //  使用REQ套接字实现基本的请求-应答模式
 //  由于s_send()和s_recv()不能处理0MQ的二进制套接字标识，
 //  所以这里会生成一个可打印的字符串标识。
@@ -839,7 +839,7 @@ client_task (void *args)
     void *client = zmq_socket (context, ZMQ_REQ);
     s_set_id (client);          //  设置可打印的标识
     zmq_connect (client, "ipc://frontend.ipc");
- 
+
     //  发送请求并获取应答信息
     s_send (client, "HELLO");
     char *reply = s_recv (client);
@@ -849,7 +849,7 @@ client_task (void *args)
     zmq_term (context);
     return NULL;
 }
- 
+
 //  worker使用REQ套接字实现LRU算法
 //
 static void *
@@ -859,10 +859,10 @@ worker_task (void *args)
     void *worker = zmq_socket (context, ZMQ_REQ);
     s_set_id (worker);          //  设置可打印的标识
     zmq_connect (worker, "ipc://backend.ipc");
- 
+
     //  告诉代理worker已经准备好
     s_send (worker, "READY");
- 
+
     while (1) {
         //  将消息中空帧之前的所有内容（信封）保存起来，
         //  本例中空帧之前只有一帧，但可以有更多。
@@ -870,12 +870,12 @@ worker_task (void *args)
         char *empty = s_recv (worker);
         assert (*empty == 0);
         free (empty);
- 
+
         //  获取请求，并发送回应
         char *request = s_recv (worker);
         printf ("Worker: %s\n", request);
         free (request);
- 
+
         s_sendmore (worker, address);
         s_sendmore (worker, "");
         s_send     (worker, "OK");
@@ -885,7 +885,7 @@ worker_task (void *args)
     zmq_term (context);
     return NULL;
 }
- 
+
 int main (void)
 {
     //  准备0MQ上下文和套接字
@@ -894,7 +894,7 @@ int main (void)
     void *backend  = zmq_socket (context, ZMQ_ROUTER);
     zmq_bind (frontend, "ipc://frontend.ipc");
     zmq_bind (backend,  "ipc://backend.ipc");
- 
+
     int client_nbr;
     for (client_nbr = 0; client_nbr < NBR_CLIENTS; client_nbr++) {
         pthread_t client;
@@ -909,34 +909,34 @@ int main (void)
     //  - 一直从backend中获取消息；当有超过一个worker空闲时才从frontend获取消息。
     //  - 当woker回应时，会将该worker标记为已准备好，并转发woker的回应给client
     //  - 如果client发送了请求，就将该请求转发给下一个worker
- 
+
     //  存放可用worker的队列
     int available_workers = 0;
     char *worker_queue [10];
- 
+
     while (1) {
         zmq_pollitem_t items [] = {
             { backend,  0, ZMQ_POLLIN, 0 },
             { frontend, 0, ZMQ_POLLIN, 0 }
         };
         zmq_poll (items, available_workers? 2: 1, -1);
- 
+
         //  处理backend中worker的队列
         if (items [0].revents & ZMQ_POLLIN) {
             //  将worker的地址入队
             char *worker_addr = s_recv (backend);
             assert (available_workers < NBR_WORKERS);
             worker_queue [available_workers++] = worker_addr;
- 
+
             //  跳过空帧
- 
+
             char *empty = s_recv (backend);
             assert (empty [0] == 0);
             free (empty);
- 
+
             // 第三帧是“READY”或是一个client的地址
             char *client_addr = s_recv (backend);
- 
+
             //  如果是一个应答消息，则转发给client
             if (strcmp (client_addr, "READY") != 0) {
                 empty = s_recv (backend);
@@ -960,16 +960,16 @@ int main (void)
             assert (empty [0] == 0);
             free (empty);
             char *request = s_recv (frontend);
- 
+
             s_sendmore (backend, worker_queue [0]);
             s_sendmore (backend, "");
             s_sendmore (backend, client_addr);
             s_sendmore (backend, "");
             s_send     (backend, request);
- 
+
             free (client_addr);
             free (request);
- 
+
             //  将该worker的地址出队
             free (worker_queue [0]);
             DEQUEUE (worker_queue);
@@ -1059,9 +1059,9 @@ REQ（worker）收到消息时，会将信封和空帧移去：
 然后再看看LRU算法，它要求client和worker都使用REQ套接字，并正确的存储和返回消息信封，具体如下：
 
 * 创建一组poll，不断地从backend（worker端的ROUTER）获取消息；只有当有空闲的worker时才从frontend（client端的ROUTER）获取消息；
- 
+
 * 循环执行poll
- 
+
 * 如果backend有消息，只有两种情况：1）READY消息（该worker已准备好，等待分配）；2）应答消息（需要转发给client）。两种情况下我们都会保存worker的地址，放入LRU队列中，如果有应答内容，则转发给相应的client。
 
 * 如果frontend有消息，我们从LRU队列中取出下一个worker，将该请求发送给它。这就需要发送[worker地址][空帧][client地址][空帧][请求内容]到worker端的ROUTER。
@@ -1080,7 +1080,7 @@ while (1) {
     char *empty = s_recv (worker);
     assert (*empty == 0);
     free (empty);
- 
+
     //  获取请求，并发送回应
     char *request = s_recv (worker);
     printf ("Worker: %s\n", request);
@@ -1101,25 +1101,25 @@ while (1) {
     zmq_msg_t address;
     zmq_msg_init (&address);
     zmq_recv (worker, &address, 0);
- 
+
     zmq_msg_t empty;
     zmq_msg_init (&empty);
     zmq_recv (worker, &empty, 0);
- 
+
     //  获取请求，并发送回应
     zmq_msg_t payload;
     zmq_msg_init (&payload);
     zmq_recv (worker, &payload, 0);
- 
+
     int char_nbr;
     printf ("Worker: ");
     for (char_nbr = 0; char_nbr < zmq_msg_size (&payload); char_nbr++)
         printf ("%c", *(char *) (zmq_msg_data (&payload) + char_nbr));
     printf ("\n");
- 
+
     zmq_msg_init_size (&payload, 2);
     memcpy (zmq_msg_data (&payload), "OK", 2);
- 
+
     zmq_send (worker, &address, ZMQ_SNDMORE);
     zmq_close (&address);
     zmq_send (worker, &empty, ZMQ_SNDMORE);
@@ -1167,11 +1167,11 @@ while (1) {
 //  LRU消息队列装置，使用czmq库实现
 //
 #include "czmq.h"
- 
+
 #define NBR_CLIENTS 10
 #define NBR_WORKERS 3
 #define LRU_READY   "\001"      //  worker准备就绪的信息
- 
+
 //  使用REQ套接字实现基本的请求-应答模式
 //
 static void *
@@ -1180,7 +1180,7 @@ client_task (void *args)
     zctx_t *ctx = zctx_new ();
     void *client = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (client, "ipc://frontend.ipc");
- 
+
     //  发送请求并接收应答
     while (1) {
         zstr_send (client, "HELLO");
@@ -1194,7 +1194,7 @@ client_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  worker使用REQ套接字，实现LRU路由
 //
 static void *
@@ -1203,11 +1203,11 @@ worker_task (void *args)
     zctx_t *ctx = zctx_new ();
     void *worker = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (worker, "ipc://backend.ipc");
- 
+
     //  告知代理worker已准备就绪
     zframe_t *frame = zframe_new (LRU_READY, 1);
     zframe_send (&frame, worker, 0);
- 
+
     //  接收消息并处理
     while (1) {
         zmsg_t *msg = zmsg_recv (worker);
@@ -1220,7 +1220,7 @@ worker_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
@@ -1228,22 +1228,22 @@ int main (void)
     void *backend = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (frontend, "ipc://frontend.ipc");
     zsocket_bind (backend, "ipc://backend.ipc");
- 
+
     int client_nbr;
     for (client_nbr = 0; client_nbr < NBR_CLIENTS; client_nbr++)
         zthread_new (ctx, client_task, NULL);
     int worker_nbr;
     for (worker_nbr = 0; worker_nbr < NBR_WORKERS; worker_nbr++)
         zthread_new (ctx, worker_task, NULL);
- 
+
     //  LRU逻辑
     //  - 一直从backend中获取消息；当有超过一个worker空闲时才从frontend获取消息。
     //  - 当woker回应时，会将该worker标记为已准备好，并转发woker的回应给client
     //  - 如果client发送了请求，就将该请求转发给下一个worker
- 
+
     //  存放可用worker的队列
     zlist_t *workers = zlist_new ();
- 
+
     while (1) {
         //  初始化poll
         zmq_pollitem_t items [] = {
@@ -1254,7 +1254,7 @@ int main (void)
         int rc = zmq_poll (items, zlist_size (workers)? 2: 1, -1);
         if (rc == -1)
             break;              //  中断
- 
+
         //  对backend发来的消息进行处理
         if (items [0].revents & ZMQ_POLLIN) {
             //  使用worker的地址进行LRU路由
@@ -1263,7 +1263,7 @@ int main (void)
                 break;          //  中断
             zframe_t *address = zmsg_unwrap (msg);
             zlist_append (workers, address);
- 
+
             //  如果不是READY消息，则转发给client
             zframe_t *frame = zmsg_first (msg);
             if (memcmp (zframe_data (frame), LRU_READY, 1) == 0)
@@ -1341,11 +1341,11 @@ zloop_destroy (&reactor);
 //  LRU队列装置，使用czmq及其反应器模式实现
 //
 #include "czmq.h"
- 
+
 #define NBR_CLIENTS 10
 #define NBR_WORKERS 3
 #define LRU_READY   "\001"      //  woker已准备就绪的消息
- 
+
 //  使用REQ实现基本的请求-应答模式
 //
 static void *
@@ -1354,7 +1354,7 @@ client_task (void *args)
     zctx_t *ctx = zctx_new ();
     void *client = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (client, "ipc://frontend.ipc");
- 
+
     //  发送请求并接收应答
     while (1) {
         zstr_send (client, "HELLO");
@@ -1368,7 +1368,7 @@ client_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  worker使用REQ套接字来实现路由
 //
 static void *
@@ -1377,11 +1377,11 @@ worker_task (void *arg_ptr)
     zctx_t *ctx = zctx_new ();
     void *worker = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (worker, "ipc://backend.ipc");
- 
+
     //  告诉代理worker已经准备就绪
     zframe_t *frame = zframe_new (LRU_READY, 1);
     zframe_send (&frame, worker, 0);
- 
+
     //  获取消息并处理
     while (1) {
         zmsg_t *msg = zmsg_recv (worker);
@@ -1394,15 +1394,15 @@ worker_task (void *arg_ptr)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  LRU队列处理器结构，将要传给反应器
 typedef struct {
     void *frontend;             //  监听client
     void *backend;              //  监听worker
     zlist_t *workers;           //  可用的worker列表
 } lruqueue_t;
- 
- 
+
+
 //  处理frontend端的消息
 int s_handle_frontend (zloop_t *loop, void *socket, void *arg)
 {
@@ -1411,14 +1411,14 @@ int s_handle_frontend (zloop_t *loop, void *socket, void *arg)
     if (msg) {
         zmsg_wrap (msg, (zframe_t *) zlist_pop (self->workers));
         zmsg_send (&msg, self->backend);
- 
+
         //  如果没有可用的worker，则停止监听frontend
         if (zlist_size (self->workers) == 0)
             zloop_cancel (loop, self->frontend);
     }
     return 0;
 }
- 
+
 //  处理backend端的消息
 int s_handle_backend (zloop_t *loop, void *socket, void *arg)
 {
@@ -1428,11 +1428,11 @@ int s_handle_backend (zloop_t *loop, void *socket, void *arg)
     if (msg) {
         zframe_t *address = zmsg_unwrap (msg);
         zlist_append (self->workers, address);
- 
+
         //  当有可用worker时增加frontend端的监听
         if (zlist_size (self->workers) == 1)
             zloop_reader (loop, self->frontend, s_handle_frontend, self);
- 
+
         //  如果是worker发送来的应答，则转发给client
         zframe_t *frame = zmsg_first (msg);
         if (memcmp (zframe_data (frame), LRU_READY, 1) == 0)
@@ -1442,7 +1442,7 @@ int s_handle_backend (zloop_t *loop, void *socket, void *arg)
     }
     return 0;
 }
- 
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
@@ -1451,23 +1451,23 @@ int main (void)
     self->backend = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (self->frontend, "ipc://frontend.ipc");
     zsocket_bind (self->backend, "ipc://backend.ipc");
- 
+
     int client_nbr;
     for (client_nbr = 0; client_nbr < NBR_CLIENTS; client_nbr++)
         zthread_new (ctx, client_task, NULL);
     int worker_nbr;
     for (worker_nbr = 0; worker_nbr < NBR_WORKERS; worker_nbr++)
         zthread_new (ctx, worker_task, NULL);
- 
+
     //  可用worker的列表
     self->workers = zlist_new ();
- 
+
     //  准备并启动反应器
     zloop_t *reactor = zloop_new ();
     zloop_reader (reactor, self->backend, s_handle_backend, self);
     zloop_start (reactor);
     zloop_destroy (&reactor);
- 
+
     //  结束之后的清理工作
     while (zlist_size (self->workers)) {
         zframe_t *frame = (zframe_t *) zlist_pop (self->workers);
@@ -1523,26 +1523,26 @@ int main (void)
 ```c
 //
 //  异步C/S模型（DEALER-ROUTER）
-// 
- 
+//
+
 #include "czmq.h"
- 
+
 //  ---------------------------------------------------------------------
 //  这是client端任务，它会连接至server，每秒发送一次请求，同时收集和打印应答消息。
 //  我们会运行多个client端任务，使用随机的标识。
- 
+
 static void *
 client_task (void *args)
 {
     zctx_t *ctx = zctx_new ();
     void *client = zsocket_new (ctx, ZMQ_DEALER);
- 
+
     //  设置随机标识，方便跟踪
     char identity [10];
     sprintf (identity, "%04X-%04X", randof (0x10000), randof (0x10000));
     zsockopt_set_identity (client, identity);
     zsocket_connect (client, "tcp://localhost:5570");
- 
+
     zmq_pollitem_t items [] = { { client, 0, ZMQ_POLLIN, 0 } };
     int request_nbr = 0;
     while (1) {
@@ -1561,34 +1561,34 @@ client_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  ---------------------------------------------------------------------
 //  这是server端任务，它使用多线程机制将请求分发给多个worker，并正确返回应答信息。
 //  一个worker只能处理一次请求，但client可以同时发送多个请求。
- 
+
 static void server_worker (void *args, zctx_t *ctx, void *pipe);
- 
+
 void *server_task (void *args)
 {
     zctx_t *ctx = zctx_new ();
- 
+
     //  frontend套接字使用TCP和client通信
     void *frontend = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (frontend, "tcp://*:5570");
- 
+
     //  backend套接字使用inproc和worker通信
     void *backend = zsocket_new (ctx, ZMQ_DEALER);
     zsocket_bind (backend, "inproc://backend");
- 
+
     //  启动一个worker线程池，数量任意
     int thread_nbr;
     for (thread_nbr = 0; thread_nbr < 5; thread_nbr++)
         zthread_fork (ctx, server_worker, NULL);
- 
+
     //  使用队列装置连接backend和frontend，我们本来可以这样做：
     //      zmq_device (ZMQ_QUEUE, frontend, backend);
     //  但这里我们会自己完成这个任务，这样可以方便调试。
- 
+
     //  在frontend和backend间搬运消息
     while (1) {
         zmq_pollitem_t items [] = {
@@ -1612,7 +1612,7 @@ void *server_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  接收一个请求，随机返回多条相同的文字，并在应答之间做随机的延迟。
 //
 static void
@@ -1620,7 +1620,7 @@ server_worker (void *args, zctx_t *ctx, void *pipe)
 {
     void *worker = zsocket_new (ctx, ZMQ_DEALER);
     zsocket_connect (worker, "inproc://backend");
- 
+
     while (1) {
         //  DEALER套接字将信封和消息内容一起返回给我们
         zmsg_t *msg = zmsg_recv (worker);
@@ -1628,7 +1628,7 @@ server_worker (void *args, zctx_t *ctx, void *pipe)
         zframe_t *content = zmsg_pop (msg);
         assert (content);
         zmsg_destroy (&msg);
- 
+
         //  随机返回0至4条应答
         int reply, replies = randof (5);
         for (reply = 0; reply < replies; reply++) {
@@ -1641,8 +1641,8 @@ server_worker (void *args, zctx_t *ctx, void *pipe)
         zframe_destroy (&content);
     }
 }
- 
- 
+
+
 //  主程序用来启动多个client和一个server
 //
 int main (void)
@@ -1652,7 +1652,7 @@ int main (void)
     zthread_new (ctx, client_task, NULL);
     zthread_new (ctx, client_task, NULL);
     zthread_new (ctx, server_task, NULL);
- 
+
     //  运行5秒后退出
     zclock_sleep (5 * 1000);
     zctx_destroy (&ctx);
@@ -2086,7 +2086,7 @@ worker和client是同步的，我们使用LRU算法来给worker分配任务。�
 //  状态流原型
 //
 #include "czmq.h"
- 
+
 int main (int argc, char *argv [])
 {
     //  第一个参数是代理的名称
@@ -2099,12 +2099,12 @@ int main (int argc, char *argv [])
     char *self = argv [1];
     printf ("I: 正在准备代理程序 %s...\n", self);
     srandom ((unsigned) time (NULL));
- 
+
     //  准备上下文和套接字
     zctx_t *ctx = zctx_new ();
     void *statebe = zsocket_new (ctx, ZMQ_PUB);
     zsocket_bind (statebe, "ipc://%s-state.ipc", self);
- 
+
     //  连接statefe套接字至所有同伴
     void *statefe = zsocket_new (ctx, ZMQ_SUB);
     int argn;
@@ -2125,7 +2125,7 @@ int main (int argc, char *argv [])
         int rc = zmq_poll (items, 1, 1000 * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  中断
- 
+
         //  处理接收到的状态消息
         if (items [0].revents & ZMQ_POLLIN) {
             char *peer_name = zstr_recv (statefe);
@@ -2250,14 +2250,14 @@ peering1 DC3 DC1 DC2  #  Start DC3 and connect to DC1 and DC2
 //  每个线程都有自己的上下文对象，所以可以认为他们是多个进程。
 //
 #include "czmq.h"
- 
+
 #define NBR_CLIENTS 10
 #define NBR_WORKERS 3
 #define LRU_READY   "\001"      //  消息：worker已就绪
- 
+
 //  代理名称；现实中，这个名称应该由某种配置完成
 static char *self;
- 
+
 //  请求-应答客户端使用REQ套接字
 //
 static void *
@@ -2266,7 +2266,7 @@ client_task (void *args)
     zctx_t *ctx = zctx_new ();
     void *client = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (client, "ipc://%s-localfe.ipc", self);
- 
+
     while (1) {
         //  发送请求，接收应答
         zstr_send (client, "HELLO");
@@ -2280,7 +2280,7 @@ client_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  worker使用REQ套接字，并进行LRU路由
 //
 static void *
@@ -2289,17 +2289,17 @@ worker_task (void *args)
     zctx_t *ctx = zctx_new ();
     void *worker = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (worker, "ipc://%s-localbe.ipc", self);
- 
+
     //  告知代理worker已就绪
     zframe_t *frame = zframe_new (LRU_READY, 1);
     zframe_send (&frame, worker, 0);
- 
+
     //  处理消息
     while (1) {
         zmsg_t *msg = zmsg_recv (worker);
         if (!msg)
             break;              //  中断
- 
+
         zframe_print (zmsg_last (msg), "Worker: ");
         zframe_reset (zmsg_last (msg), "OK", 2);
         zmsg_send (&msg, worker);
@@ -2307,8 +2307,8 @@ worker_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
- 
+
+
 int main (int argc, char *argv [])
 {
     //  第一个参数是代理的名称
@@ -2321,16 +2321,16 @@ int main (int argc, char *argv [])
     self = argv [1];
     printf ("I: 正在准备代理程序 %s...\n", self);
     srandom ((unsigned) time (NULL));
- 
+
     //  准备上下文和套接字
     zctx_t *ctx = zctx_new ();
     char endpoint [256];
- 
+
     //  将cloudfe绑定至端点
     void *cloudfe = zsocket_new (ctx, ZMQ_ROUTER);
     zsockopt_set_identity (cloudfe, self);
     zsocket_bind (cloudfe, "ipc://%s-cloud.ipc", self);
- 
+
     //  将cloudbe连接至同伴代理的端点
     void *cloudbe = zsocket_new (ctx, ZMQ_ROUTER);
     zsockopt_set_identity (cloudfe, self);
@@ -2345,31 +2345,31 @@ int main (int argc, char *argv [])
     zsocket_bind (localfe, "ipc://%s-localfe.ipc", self);
     void *localbe = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (localbe, "ipc://%s-localbe.ipc", self);
- 
+
     //  让用户告诉我们何时开始
     printf ("请确认所有代理已经启动，按任意键继续: ");
     getchar ();
- 
+
     //  启动本地worker
     int worker_nbr;
     for (worker_nbr = 0; worker_nbr < NBR_WORKERS; worker_nbr++)
         zthread_new (ctx, worker_task, NULL);
- 
+
     //  启动本地client
     int client_nbr;
     for (client_nbr = 0; client_nbr < NBR_CLIENTS; client_nbr++)
         zthread_new (ctx, client_task, NULL);
- 
+
     //  有趣的部分
     //  -------------------------------------------------------------
     //  请求-应答消息流
     //  - 若本地有可用worker，则轮询获取本地或云端的请求；
     //  - 将请求路由给本地worker或其他集群。
- 
+
     //  可用worker队列
     int capacity = 0;
     zlist_t *workers = zlist_new ();
- 
+
     while (1) {
         zmq_pollitem_t backends [] = {
             { localbe, 0, ZMQ_POLLIN, 0 },
@@ -2380,7 +2380,7 @@ int main (int argc, char *argv [])
             capacity? 1000 * ZMQ_POLL_MSEC: -1);
         if (rc == -1)
             break;              //  中断
- 
+
         //  处理本地worker的应答
         zmsg_t *msg = NULL;
         if (backends [0].revents & ZMQ_POLLIN) {
@@ -2390,7 +2390,7 @@ int main (int argc, char *argv [])
             zframe_t *address = zmsg_unwrap (msg);
             zlist_append (workers, address);
             capacity++;
- 
+
             //  如果是“已就绪”的信号，则不再进行路由
             zframe_t *frame = zmsg_first (msg);
             if (memcmp (zframe_data (frame), LRU_READY, 1) == 0)
@@ -2417,7 +2417,7 @@ int main (int argc, char *argv [])
         //  将应答路由给本地client
         if (msg)
             zmsg_send (&msg, localfe);
- 
+
         //  开始处理客户端请求
         //
         while (capacity) {
@@ -2440,7 +2440,7 @@ int main (int argc, char *argv [])
             }
             else
                 break;      //  没有请求
- 
+
             //  将20%的请求发送给其他集群
             //
             if (reroutable && argc > 2 && randof (5) == 0) {
@@ -2499,14 +2499,14 @@ peering2 you me
 //  每个线程都有自己的上下文对象，所以可以认为他们是多个进程。
 //
 #include "czmq.h"
- 
+
 #define NBR_CLIENTS 10
 #define NBR_WORKERS 5
 #define LRU_READY   "\001"      //  消息：worker已就绪
- 
+
 //  代理名称；现实中，这个名称应该由某种配置完成
 static char *self;
- 
+
 //  请求-应答客户端使用REQ套接字
 //  为模拟压力测试，客户端会一次性发送大量请求
 //
@@ -2518,23 +2518,23 @@ client_task (void *args)
     zsocket_connect (client, "ipc://%s-localfe.ipc", self);
     void *monitor = zsocket_new (ctx, ZMQ_PUSH);
     zsocket_connect (monitor, "ipc://%s-monitor.ipc", self);
- 
+
     while (1) {
         sleep (randof (5));
         int burst = randof (15);
         while (burst--) {
             char task_id [5];
             sprintf (task_id, "%04X", randof (0x10000));
- 
+
             //  使用随机的十六进制ID来标注任务
             zstr_send (client, task_id);
- 
+
             //  最多等待10秒
             zmq_pollitem_t pollset [1] = { { client, 0, ZMQ_POLLIN, 0 } };
             int rc = zmq_poll (pollset, 1, 10 * 1000 * ZMQ_POLL_MSEC);
             if (rc == -1)
                 break;          //  中断
- 
+
             if (pollset [0].revents & ZMQ_POLLIN) {
                 char *reply = zstr_recv (client);
                 if (!reply)
@@ -2554,7 +2554,7 @@ client_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 //  worker使用REQ套接字，并进行LRU路由
 //
 static void *
@@ -2563,11 +2563,11 @@ worker_task (void *args)
     zctx_t *ctx = zctx_new ();
     void *worker = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (worker, "ipc://%s-localbe.ipc", self);
- 
+
     //  告知代理worker已就绪
     zframe_t *frame = zframe_new (LRU_READY, 1);
     zframe_send (&frame, worker, 0);
- 
+
     while (1) {
         //  worker会随机延迟几秒
         zmsg_t *msg = zmsg_recv (worker);
@@ -2577,7 +2577,7 @@ worker_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 int main (int argc, char *argv [])
 {
     //  第一个参数是代理的名称
@@ -2590,20 +2590,20 @@ int main (int argc, char *argv [])
     self = argv [1];
     printf ("I: 正在准备代理程序 %s...\n", self);
     srandom ((unsigned) time (NULL));
- 
+
     //  准备上下文和套接字
     zctx_t *ctx = zctx_new ();
     char endpoint [256];
- 
+
     //  将cloudfe绑定至端点
     void *cloudfe = zsocket_new (ctx, ZMQ_ROUTER);
     zsockopt_set_identity (cloudfe, self);
     zsocket_bind (cloudfe, "ipc://%s-cloud.ipc", self);
- 
+
     //  将statebe绑定至端点
     void *statebe = zsocket_new (ctx, ZMQ_PUB);
     zsocket_bind (statebe, "ipc://%s-state.ipc", self);
- 
+
     //  将cloudbe连接至同伴代理的端点
     void *cloudbe = zsocket_new (ctx, ZMQ_ROUTER);
     zsockopt_set_identity (cloudbe, self);
@@ -2613,7 +2613,7 @@ int main (int argc, char *argv [])
         printf ("I: 正在连接至同伴代理 '%s' 的cloudfe端点\n", peer);
         zsocket_connect (cloudbe, "ipc://%s-cloud.ipc", peer);
     }
- 
+
     //  将statefe连接至同伴代理的端点
     void *statefe = zsocket_new (ctx, ZMQ_SUB);
     for (argn = 2; argn < argc; argn++) {
@@ -2624,24 +2624,24 @@ int main (int argc, char *argv [])
     //  准备本地前端和后端
     void *localfe = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (localfe, "ipc://%s-localfe.ipc", self);
- 
+
     void *localbe = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (localbe, "ipc://%s-localbe.ipc", self);
- 
+
     //  准备监控套接字
     void *monitor = zsocket_new (ctx, ZMQ_PULL);
     zsocket_bind (monitor, "ipc://%s-monitor.ipc", self);
- 
+
     //  启动本地worker
     int worker_nbr;
     for (worker_nbr = 0; worker_nbr < NBR_WORKERS; worker_nbr++)
         zthread_new (ctx, worker_task, NULL);
- 
+
     //  启动本地client
     int client_nbr;
     for (client_nbr = 0; client_nbr < NBR_CLIENTS; client_nbr++)
         zthread_new (ctx, client_task, NULL);
- 
+
     //  有趣的部分
     //  -------------------------------------------------------------
     //  发布-订阅消息流
@@ -2650,12 +2650,12 @@ int main (int argc, char *argv [])
     //  请求-应答消息流
     //  - 若本地有可用worker，则轮询获取本地或云端的请求；
     //  - 将请求路由给本地worker或其他集群。
- 
+
     //  可用worker队列
     int local_capacity = 0;
     int cloud_capacity = 0;
     zlist_t *workers = zlist_new ();
- 
+
     while (1) {
         zmq_pollitem_t primary [] = {
             { localbe, 0, ZMQ_POLLIN, 0 },
@@ -2668,13 +2668,13 @@ int main (int argc, char *argv [])
             local_capacity? 1000 * ZMQ_POLL_MSEC: -1);
         if (rc == -1)
             break;              //  中断
- 
+
         //  跟踪自身状态信息是否改变
         int previous = local_capacity;
- 
+
         //  处理本地worker的应答
         zmsg_t *msg = NULL;
- 
+
         if (primary [0].revents & ZMQ_POLLIN) {
             msg = zmsg_recv (localbe);
             if (!msg)
@@ -2682,7 +2682,7 @@ int main (int argc, char *argv [])
             zframe_t *address = zmsg_unwrap (msg);
             zlist_append (workers, address);
             local_capacity++;
- 
+
             //  如果是“已就绪”的信号，则不再进行路由
             zframe_t *frame = zmsg_first (msg);
             if (memcmp (zframe_data (frame), LRU_READY, 1) == 0)
@@ -2709,7 +2709,7 @@ int main (int argc, char *argv [])
         //  将应答路由给本地client
         if (msg)
             zmsg_send (&msg, localfe);
- 
+
         //  处理同伴代理的状态更新
         if (primary [2].revents & ZMQ_POLLIN) {
             char *status = zstr_recv (statefe);
@@ -2722,7 +2722,7 @@ int main (int argc, char *argv [])
             printf ("%s\n", status);
             free (status);
         }
- 
+
         //  开始处理客户端请求
         //  - 如果本地有空闲worker，则总本地client和云端接收请求；
         //  - 如果我们只有空闲的同伴代理，则只轮询本地client的请求；
@@ -2738,7 +2738,7 @@ int main (int argc, char *argv [])
             else
                 rc = zmq_poll (secondary, 1, 0);
             assert (rc >= 0);
- 
+
             if (secondary [0].revents & ZMQ_POLLIN)
                 msg = zmsg_recv (localfe);
             else
@@ -2746,7 +2746,7 @@ int main (int argc, char *argv [])
                 msg = zmsg_recv (cloudfe);
             else
                 break;      //  没有任务
- 
+
             if (local_capacity) {
                 zframe_t *frame = (zframe_t *) zlist_pop (workers);
                 zmsg_wrap (msg, frame);
@@ -2797,4 +2797,3 @@ int main (int argc, char *argv [])
 * zmsg类库没有很好地将UUID编码为C语言字符串，导致包含字节0的UUID会崩溃。解决方法是将UUID转换成可打印的十六进制字符串。
 
 这段模拟程序没有检测同伴代理是否存在。如果你开启了某个代理，它已向其他代理发送过状态信息，然后关闭了，那其他代理仍会向它发送请求。这样一来，其他代理的client就会报告很多错误。解决时有两点：一、为状态信息设置有效期，当同伴代理消失一段时间后就不再发送请求；二、提高请求-应答的可靠性，这在下一章中会讲到。
-

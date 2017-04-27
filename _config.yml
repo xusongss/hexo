@@ -7,7 +7,7 @@ title: 绿色回忆
 subtitle: 程序猿 攻城狮
 description: 天黑请闭眼
 author: 徐松
-language:
+language: zh-Hans
 timezone: Asia/Shanghai
 
 # URL
@@ -63,7 +63,8 @@ pagination_dir: page
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: landscape
+#theme: landscape
+theme: next
 
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html

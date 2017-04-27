@@ -33,7 +33,7 @@ tags:
 想要让软件系统规避上述所有的风险，需要大量的人力物力，故不在本指南的讨论范围之内。
 
 由于前五个故障类型涵盖了99.9%的情形（这一数据源自我近期进行的一项研究），所以我们会深入探讨。如果你的公司大到足以考虑最后两种情形，那请及时联系我，因为我正愁没钱将我家后院的大坑建成游泳池。
-
+<!--more-->
 ### 可靠性设计
 
 简单地来说，可靠性就是当程序发生故障时也能顺利地运行下去，这要比搭建一个消息系统来得困难得多。我们会根据ZMQ提供的每一种核心消息模式，来看看如何保障代码的持续运行。
@@ -108,11 +108,11 @@ tags:
 //  运行时可随机关闭或重启lpserver程序
 //
 #include "czmq.h"
- 
+
 #define REQUEST_TIMEOUT     2500    //  毫秒, (> 1000!)
 #define REQUEST_RETRIES     3       //  尝试次数
 #define SERVER_ENDPOINT     "tcp://localhost:5555"
- 
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
@@ -120,7 +120,7 @@ int main (void)
     void *client = zsocket_new (ctx, ZMQ_REQ);
     assert (client);
     zsocket_connect (client, SERVER_ENDPOINT);
- 
+
     int sequence = 0;
     int retries_left = REQUEST_RETRIES;
     while (retries_left && !zctx_interrupted) {
@@ -128,7 +128,7 @@ int main (void)
         char request [10];
         sprintf (request, "%d", ++sequence);
         zstr_send (client, request);
- 
+
         int expect_reply = 1;
         while (expect_reply) {
             //  对套接字进行轮询，并设置超时时间
@@ -136,7 +136,7 @@ int main (void)
             int rc = zmq_poll (items, 1, REQUEST_TIMEOUT * ZMQ_POLL_MSEC);
             if (rc == -1)
                 break;          //  中断
- 
+
             //  如果接收到回复则进行处理
             if (items [0].revents & ZMQ_POLLIN) {
                 //  收到服务器应答，必须和请求时的序号一致
@@ -151,7 +151,7 @@ int main (void)
                 else
                     printf ("E: 服务器返回异常: %s\n",
                         reply);
- 
+
                 free (reply);
             }
             else
@@ -187,20 +187,20 @@ int main (void)
 //   - 随机地降慢运行速度，或中止程序，模拟崩溃
 //
 #include "zhelpers.h"
- 
+
 int main (void)
 {
     srandom ((unsigned) time (NULL));
- 
+
     void *context = zmq_init (1);
     void *server = zmq_socket (context, ZMQ_REP);
     zmq_bind (server, "tcp://*:5555");
- 
+
     int cycles = 0;
     while (1) {
         char *request = s_recv (server);
         cycles++;
- 
+
         //  循环几次后开始模拟各种故障
         if (cycles > 3 && randof (3) == 0) {
             printf ("I: 模拟程序崩溃\n");
@@ -315,9 +315,9 @@ E: server seems to be offline, abandoning
 //  这个装置和LRU队列完全一致，不存在任何可靠性机制，依靠client的重试来保证装置的运行
 //
 #include "czmq.h"
- 
+
 #define LRU_READY   "\001"      //  消息：worker准备就绪
- 
+
 int main (void)
 {
     //  准备上下文和套接字
@@ -326,10 +326,10 @@ int main (void)
     void *backend = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (frontend, "tcp://*:5555");    //  client端点
     zsocket_bind (backend,  "tcp://*:5556");    //  worker端点
- 
+
     //  存放可用worker的队列
     zlist_t *workers = zlist_new ();
- 
+
     while (1) {
         zmq_pollitem_t items [] = {
             { backend,  0, ZMQ_POLLIN, 0 },
@@ -339,7 +339,7 @@ int main (void)
         int rc = zmq_poll (items, zlist_size (workers)? 2: 1, -1);
         if (rc == -1)
             break;              //  中断
- 
+
         //  处理后端端点的worker消息
         if (items [0].revents & ZMQ_POLLIN) {
             //  使用worker的地址进行LRU排队
@@ -348,7 +348,7 @@ int main (void)
                 break;          //  中断
             zframe_t *address = zmsg_unwrap (msg);
             zlist_append (workers, address);
- 
+
             //  如果消息不是READY，则转发给client
             zframe_t *frame = zmsg_first (msg);
             if (memcmp (zframe_data (frame), LRU_READY, 1) == 0)
@@ -388,30 +388,30 @@ int main (void)
 //
 #include "czmq.h"
 #define LRU_READY   "\001"      //  消息：worker已就绪
- 
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
     void *worker = zsocket_new (ctx, ZMQ_REQ);
- 
+
     //  使用随机符号来指定套接字标识，方便追踪
     srandom ((unsigned) time (NULL));
     char identity [10];
     sprintf (identity, "%04X-%04X", randof (0x10000), randof (0x10000));
     zmq_setsockopt (worker, ZMQ_IDENTITY, identity, strlen (identity));
     zsocket_connect (worker, "tcp://localhost:5556");
- 
+
     //  告诉代理worker已就绪
     printf ("I: (%s) worker准备就绪\n", identity);
     zframe_t *frame = zframe_new (LRU_READY, 1);
     zframe_send (&frame, worker, 0);
- 
+
     int cycles = 0;
     while (1) {
         zmsg_t *msg = zmsg_recv (worker);
         if (!msg)
             break;              //  中断
- 
+
         //  经过几轮循环后，模拟各种问题
         cycles++;
         if (cycles > 3 && randof (5) == 0) {
@@ -498,23 +498,23 @@ int main (void)
 //  偏执海盗队列
 //
 #include "czmq.h"
- 
+
 #define HEARTBEAT_LIVENESS  3       //  心跳健康度，3-5是合理的
 #define HEARTBEAT_INTERVAL  1000    //  单位：毫秒
- 
+
 //  偏执海盗协议的消息代码
 #define PPP_READY       "\001"      //  worker已就绪
 #define PPP_HEARTBEAT   "\002"      //  worker心跳
- 
- 
+
+
 //  使用以下结构表示worker队列中的一个有效的worker
- 
+
 typedef struct {
     zframe_t *address;          //  worker的地址
     char *identity;             //  可打印的套接字标识
     int64_t expiry;             //  过期时间
 } worker_t;
- 
+
 //  创建新的worker
 static worker_t *
 s_worker_new (zframe_t *address)
@@ -525,7 +525,7 @@ s_worker_new (zframe_t *address)
     self->expiry = zclock_time () + HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS;
     return self;
 }
- 
+
 //  销毁worker结构，包括标识
 static void
 s_worker_destroy (worker_t **self_p)
@@ -539,7 +539,7 @@ s_worker_destroy (worker_t **self_p)
         *self_p = NULL;
     }
 }
- 
+
 //  worker已就绪，将其移至列表末尾
 static void
 s_worker_ready (worker_t *self, zlist_t *workers)
@@ -555,7 +555,7 @@ s_worker_ready (worker_t *self, zlist_t *workers)
     }
     zlist_append (workers, self);
 }
- 
+
 //  返回下一个可用的worker地址
 static zframe_t *
 s_workers_next (zlist_t *workers)
@@ -567,7 +567,7 @@ s_workers_next (zlist_t *workers)
     s_worker_destroy (&worker);
     return frame;
 }
- 
+
 //  寻找并销毁已过期的worker。
 //  由于列表中最旧的worker排在最前，所以当找到第一个未过期的worker时就停止。
 static void
@@ -577,14 +577,14 @@ s_workers_purge (zlist_t *workers)
     while (worker) {
         if (zclock_time () < worker->expiry)
             break;              //  worker未过期，停止扫描
- 
+
         zlist_remove (workers, worker);
         s_worker_destroy (&worker);
         worker = (worker_t *) zlist_first (workers);
     }
 }
- 
- 
+
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
@@ -594,10 +594,10 @@ int main (void)
     zsocket_bind (backend,  "tcp://*:5556");    //  worker端点
     //  List of available workers
     zlist_t *workers = zlist_new ();
- 
+
     //  规律地发送心跳
     uint64_t heartbeat_at = zclock_time () + HEARTBEAT_INTERVAL;
- 
+
     while (1) {
         zmq_pollitem_t items [] = {
             { backend,  0, ZMQ_POLLIN, 0 },
@@ -608,19 +608,19 @@ int main (void)
             HEARTBEAT_INTERVAL * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  中断
- 
+
         //  处理后端worker请求
         if (items [0].revents & ZMQ_POLLIN) {
             //  使用worker地址进行LRU路由
             zmsg_t *msg = zmsg_recv (backend);
             if (!msg)
                 break;          //  中断
- 
+
             //  worker的任何信号均表示其仍然存活
             zframe_t *address = zmsg_unwrap (msg);
             worker_t *worker = s_worker_new (address);
             s_worker_ready (worker, workers);
- 
+
             //  处理控制消息，或者将应答转发给client
             if (zmsg_size (msg) == 1) {
                 zframe_t *frame = zmsg_first (msg);
@@ -642,7 +642,7 @@ int main (void)
             zmsg_push (msg, s_workers_next (workers));
             zmsg_send (&msg, backend);
         }
- 
+
         //  发送心跳给空闲的worker
         if (zclock_time () >= heartbeat_at) {
             worker_t *worker = (worker_t *) zlist_first (workers);
@@ -657,7 +657,7 @@ int main (void)
         }
         s_workers_purge (workers);
     }
- 
+
     //  程序结束后进行清理
     while (zlist_size (workers)) {
         worker_t *worker = (worker_t *) zlist_pop (workers);
@@ -680,43 +680,43 @@ int main (void)
 //  偏执海盗worker
 //
 #include "czmq.h"
- 
+
 #define HEARTBEAT_LIVENESS  3       //  合理值：3-5
 #define HEARTBEAT_INTERVAL  1000    //  单位：毫秒
 #define INTERVAL_INIT       1000    //  重试间隔
 #define INTERVAL_MAX       32000    //  回退算法最大值
- 
+
 //  偏执海盗规范的常量定义
 #define PPP_READY       "\001"      //  消息：worker已就绪
 #define PPP_HEARTBEAT   "\002"      //  消息：worker心跳
- 
+
 //  返回一个连接至偏执海盗队列装置的套接字
- 
+
 static void *
 s_worker_socket (zctx_t *ctx) {
     void *worker = zsocket_new (ctx, ZMQ_DEALER);
     zsocket_connect (worker, "tcp://localhost:5556");
- 
+
     //  告知队列worker已准备就绪
     printf ("I: worker已就绪\n");
     zframe_t *frame = zframe_new (PPP_READY, 1);
     zframe_send (&frame, worker, 0);
- 
+
     return worker;
 }
- 
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
     void *worker = s_worker_socket (ctx);
- 
+
     //  如果心跳健康度为零，则表示队列装置已死亡
     size_t liveness = HEARTBEAT_LIVENESS;
     size_t interval = INTERVAL_INIT;
- 
+
     //  规律地发送心跳
     uint64_t heartbeat_at = zclock_time () + HEARTBEAT_INTERVAL;
- 
+
     srandom ((unsigned) time (NULL));
     int cycles = 0;
     while (1) {
@@ -724,7 +724,7 @@ int main (void)
         int rc = zmq_poll (items, 1, HEARTBEAT_INTERVAL * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  中断
- 
+
         if (items [0].revents & ZMQ_POLLIN) {
             //  获取消息
             //  - 3段消息，信封+内容，表示一个请求
@@ -732,7 +732,7 @@ int main (void)
             zmsg_t *msg = zmsg_recv (worker);
             if (!msg)
                 break;          //  中断
- 
+
             if (zmsg_size (msg) == 3) {
                 //  若干词循环后模拟各种问题
                 cycles++;
@@ -777,14 +777,14 @@ int main (void)
             printf ("W: 心跳失败，无法连接队列装置\n");
             printf ("W: %zd 毫秒后进行重连...\n", interval);
             zclock_sleep (interval);
- 
+
             if (interval < INTERVAL_MAX)
                 interval *= 2;
             zsocket_destroy (ctx, worker);
             worker = s_worker_socket (ctx);
             liveness = HEARTBEAT_LIVENESS;
         }
- 
+
         //  适时发送心跳给队列
         if (zclock_time () > heartbeat_at) {
             heartbeat_at = zclock_time () + HEARTBEAT_INTERVAL;
@@ -950,37 +950,37 @@ zmsg_t  *mdwrk_recv    (mdwrk_t *self, zmsg_t *reply);
 ```c
 /*  =====================================================================
     mdcliapi.c
- 
+
     Majordomo Protocol Client API
     Implements the MDP/Worker spec at http://rfc.zeromq.org/spec:7.
- 
+
     ---------------------------------------------------------------------
     Copyright (c) 1991-2011 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
- 
+
     This file is part of the ZeroMQ Guide: http://zguide.zeromq.org
- 
+
     This is free software; you can redistribute it and/or modify it under
     the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 3 of the License, or (at
     your option) any later version.
- 
+
     This software is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
     Lesser General Public License for more details.
- 
+
     You should have received a copy of the GNU Lesser General Public
     License along with this program. If not, see
     <http://www.gnu.org/licenses/>.
     =====================================================================
 */
- 
+
 #include "mdcliapi.h"
- 
+
 //  类结构
 //  我们会通过成员方法来访问这些属性
- 
+
 struct _mdcli_t {
     zctx_t *ctx;                //  上下文
     char *broker;
@@ -989,11 +989,11 @@ struct _mdcli_t {
     int timeout;                //  请求超时时间
     int retries;                //  请求重试次数
 };
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  连接或重连代理
- 
+
 void s_mdcli_connect_to_broker (mdcli_t *self)
 {
     if (self->client)
@@ -1003,31 +1003,31 @@ void s_mdcli_connect_to_broker (mdcli_t *self)
     if (self->verbose)
         zclock_log ("I: 正在连接至代理 %s...", self->broker);
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  构造函数
- 
+
 mdcli_t *
 mdcli_new (char *broker, int verbose)
 {
     assert (broker);
- 
+
     mdcli_t *self = (mdcli_t *) zmalloc (sizeof (mdcli_t));
     self->ctx = zctx_new ();
     self->broker = strdup (broker);
     self->verbose = verbose;
     self->timeout = 2500;           //  毫秒
     self->retries = 3;              //  尝试次数
- 
+
     s_mdcli_connect_to_broker (self);
     return self;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  析构函数
- 
+
 void
 mdcli_destroy (mdcli_t **self_p)
 {
@@ -1040,42 +1040,42 @@ mdcli_destroy (mdcli_t **self_p)
         *self_p = NULL;
     }
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  设定请求超时时间
- 
+
 void
 mdcli_set_timeout (mdcli_t *self, int timeout)
 {
     assert (self);
     self->timeout = timeout;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  设定请求重试次数
- 
+
 void
 mdcli_set_retries (mdcli_t *self, int retries)
 {
     assert (self);
     self->retries = retries;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  向代理发送请求，并尝试获取应答；
 //  对消息保持所有权，发送后销毁；
 //  返回应答消息，或NULL。
- 
+
 zmsg_t *
 mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
 {
     assert (self);
     assert (request_p);
     zmsg_t *request = *request_p;
- 
+
     //  用协议前缀包装消息
     //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
     //  Frame 2: 服务名称 (可打印字符串)
@@ -1085,12 +1085,12 @@ mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
         zclock_log ("I: 发送请求给 '%s' 服务:", service);
         zmsg_dump (request);
     }
- 
+
     int retries_left = self->retries;
     while (retries_left && !zctx_interrupted) {
         zmsg_t *msg = zmsg_dup (request);
         zmsg_send (&msg, self->client);
- 
+
         while (TRUE) {
             //  轮询套接字以接收应答，有超时时间
             zmq_pollitem_t items [] = {
@@ -1098,7 +1098,7 @@ mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
             int rc = zmq_poll (items, 1, self->timeout * ZMQ_POLL_MSEC);
             if (rc == -1)
                 break;          //  中断
- 
+
             //  收到应答后进行处理
             if (items [0].revents & ZMQ_POLLIN) {
                 zmsg_t *msg = zmsg_recv (self->client);
@@ -1108,15 +1108,15 @@ mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
                 }
                 //  不要尝试处理错误，直接报错即可
                 assert (zmsg_size (msg) >= 3);
- 
+
                 zframe_t *header = zmsg_pop (msg);
                 assert (zframe_streq (header, MDPC_CLIENT));
                 zframe_destroy (&header);
- 
+
                 zframe_t *reply_service = zmsg_pop (msg);
                 assert (zframe_streq (reply_service, service));
                 zframe_destroy (&reply_service);
- 
+
                 zmsg_destroy (&request);
                 return msg;     //  成功
             }
@@ -1152,15 +1152,15 @@ mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
 //  管家模式协议 - 客户端示例
 //  使用mdcli API隐藏管家模式协议的内部实现
 //
- 
+
 //  让我们直接编译这段代码，不生成类库
 #include "mdcliapi.c"
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
     mdcli_t *session = mdcli_new ("tcp://localhost:5555", verbose);
- 
+
     int count;
     for (count = 0; count < 100000; count++) {
         zmsg_t *request = zmsg_new ();
@@ -1185,78 +1185,78 @@ int main (int argc, char *argv [])
 ```c
 /*  =====================================================================
     mdwrkapi.c
- 
+
     Majordomo Protocol Worker API
     Implements the MDP/Worker spec at http://rfc.zeromq.org/spec:7.
- 
+
     ---------------------------------------------------------------------
     Copyright (c) 1991-2011 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
- 
+
     This file is part of the ZeroMQ Guide: http://zguide.zeromq.org
- 
+
     This is free software; you can redistribute it and/or modify it under
     the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 3 of the License, or (at
     your option) any later version.
- 
+
     This software is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
     Lesser General Public License for more details.
- 
+
     You should have received a copy of the GNU Lesser General Public
     License along with this program. If not, see
     <http://www.gnu.org/licenses/>.
     =====================================================================
 */
- 
+
 #include "mdwrkapi.h"
- 
+
 //  可靠性参数
 #define HEARTBEAT_LIVENESS  3       //  合理值：3-5
- 
+
 //  类结构
 //  使用成员函数访问属性
- 
+
 struct _mdwrk_t {
     zctx_t *ctx;                //  上下文
     char *broker;
     char *service;
     void *worker;               //  连接至代理的套接字
     int verbose;                //  使用标准输出打印活动
- 
+
     //  心跳设置
     uint64_t heartbeat_at;      //  发送心跳的时间
     size_t liveness;            //  尝试次数
     int heartbeat;              //  心跳延时，单位：毫秒
     int reconnect;              //  重连延时，单位：毫秒
- 
+
     //  内部状态
     int expect_reply;           //  初始值为0
- 
+
     //  应答地址，如果存在的话
     zframe_t *reply_to;
 };
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  发送消息给代理
 //  如果没有提供消息，则内部创建一个
- 
+
 static void
 s_mdwrk_send_to_broker (mdwrk_t *self, char *command, char *option,
                         zmsg_t *msg)
 {
     msg = msg? zmsg_dup (msg): zmsg_new ();
- 
+
     //  将协议信封压入消息顶部
     if (option)
         zmsg_pushstr (msg, option);
     zmsg_pushstr (msg, command);
     zmsg_pushstr (msg, MDPW_WORKER);
     zmsg_pushstr (msg, "");
- 
+
     if (self->verbose) {
         zclock_log ("I: sending %s to broker",
             mdps_commands [(int) *command]);
@@ -1264,11 +1264,11 @@ s_mdwrk_send_to_broker (mdwrk_t *self, char *command, char *option,
     }
     zmsg_send (&msg, self->worker);
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  连接或重连代理
- 
+
 void s_mdwrk_connect_to_broker (mdwrk_t *self)
 {
     if (self->worker)
@@ -1277,25 +1277,25 @@ void s_mdwrk_connect_to_broker (mdwrk_t *self)
     zmq_connect (self->worker, self->broker);
     if (self->verbose)
         zclock_log ("I: 正在连接代理 %s...", self->broker);
- 
+
     //  向代理注册服务类型
     s_mdwrk_send_to_broker (self, MDPW_READY, self->service, NULL);
- 
+
     //  当心跳健康度为零，表示代理已断开连接
     self->liveness = HEARTBEAT_LIVENESS;
     self->heartbeat_at = zclock_time () + self->heartbeat;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  构造函数
- 
+
 mdwrk_t *
 mdwrk_new (char *broker,char *service, int verbose)
 {
     assert (broker);
     assert (service);
- 
+
     mdwrk_t *self = (mdwrk_t *) zmalloc (sizeof (mdwrk_t));
     self->ctx = zctx_new ();
     self->broker = strdup (broker);
@@ -1303,15 +1303,15 @@ mdwrk_new (char *broker,char *service, int verbose)
     self->verbose = verbose;
     self->heartbeat = 2500;     //  毫秒
     self->reconnect = 2500;     //  毫秒
- 
+
     s_mdwrk_connect_to_broker (self);
     return self;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  析构函数
- 
+
 void
 mdwrk_destroy (mdwrk_t **self_p)
 {
@@ -1325,31 +1325,31 @@ mdwrk_destroy (mdwrk_t **self_p)
         *self_p = NULL;
     }
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  设置心跳延迟
- 
+
 void
 mdwrk_set_heartbeat (mdwrk_t *self, int heartbeat)
 {
     self->heartbeat = heartbeat;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  设置重连延迟
- 
+
 void
 mdwrk_set_reconnect (mdwrk_t *self, int reconnect)
 {
     self->reconnect = reconnect;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  若有应答则发送给代理，并等待新的请求
- 
+
 zmsg_t *
 mdwrk_recv (mdwrk_t *self, zmsg_t **reply_p)
 {
@@ -1364,14 +1364,14 @@ mdwrk_recv (mdwrk_t *self, zmsg_t **reply_p)
         zmsg_destroy (reply_p);
     }
     self->expect_reply = 1;
- 
+
     while (TRUE) {
         zmq_pollitem_t items [] = {
             { self->worker,  0, ZMQ_POLLIN, 0 } };
         int rc = zmq_poll (items, 1, self->heartbeat * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  中断
- 
+
         if (items [0].revents & ZMQ_POLLIN) {
             zmsg_t *msg = zmsg_recv (self->worker);
             if (!msg)
@@ -1381,18 +1381,18 @@ mdwrk_recv (mdwrk_t *self, zmsg_t **reply_p)
                 zmsg_dump (msg);
             }
             self->liveness = HEARTBEAT_LIVENESS;
- 
+
             //  不要处理错误，直接报错即可
             assert (zmsg_size (msg) >= 3);
- 
+
             zframe_t *empty = zmsg_pop (msg);
             assert (zframe_streq (empty, ""));
             zframe_destroy (&empty);
- 
+
             zframe_t *header = zmsg_pop (msg);
             assert (zframe_streq (header, MDPW_WORKER));
             zframe_destroy (&header);
- 
+
             zframe_t *command = zmsg_pop (msg);
             if (zframe_streq (command, MDPW_REQUEST)) {
                 //  这里需要将消息中空帧之前的所有地址都保存起来，
@@ -1442,16 +1442,16 @@ mdwrk_recv (mdwrk_t *self, zmsg_t **reply_p)
 //  管家模式协议 - worker示例
 //  使用mdwrk API隐藏MDP协议的内部实现
 //
- 
+
 //  让我们直接编译代码，而不创建类库
 #include "mdwrkapi.c"
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
     mdwrk_t *session = mdwrk_new (
         "tcp://localhost:5555", "echo", verbose);
- 
+
     zmsg_t *reply = NULL;
     while (1) {
         zmsg_t *request = mdwrk_recv (session, &reply);
@@ -1487,13 +1487,13 @@ int main (int argc, char *argv [])
 //
 #include "czmq.h"
 #include "mdp.h"
- 
+
 //  一般我们会从配置文件中获取以下值
- 
+
 #define HEARTBEAT_LIVENESS  3       //  合理值：3-5
 #define HEARTBEAT_INTERVAL  2500    //  单位：毫秒
 #define HEARTBEAT_EXPIRY    HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS
- 
+
 //  定义一个代理
 typedef struct {
     zctx_t *ctx;                //  上下文
@@ -1505,7 +1505,7 @@ typedef struct {
     zlist_t *waiting;           //  正在等待的worker队列
     uint64_t heartbeat_at;      //  发送心跳的时间
 } broker_t;
- 
+
 //  定义一个服务
 typedef struct {
     char *name;                 //  服务名称
@@ -1513,7 +1513,7 @@ typedef struct {
     zlist_t *waiting;           //  正在等待的worker队列
     size_t workers;             //  可用worker数
 } service_t;
- 
+
 //  定义一个worker，状态为空闲或占用
 typedef struct {
     char *identity;             //  worker的标识
@@ -1521,8 +1521,8 @@ typedef struct {
     service_t *service;         //  所属服务
     int64_t expiry;             //  过期时间，从未收到心跳起计时
 } worker_t;
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  代理使用的函数
 static broker_t *
@@ -1533,7 +1533,7 @@ static void
     s_broker_bind (broker_t *self, char *endpoint);
 static void
     s_broker_purge_workers (broker_t *self);
- 
+
 //  服务使用的函数
 static service_t *
     s_service_require (broker_t *self, zframe_t *service_frame);
@@ -1543,7 +1543,7 @@ static void
     s_service_dispatch (broker_t *self, service_t *service, zmsg_t *msg);
 static void
     s_service_internal (broker_t *self, zframe_t *service_frame, zmsg_t *msg);
- 
+
 //  worker使用的函数
 static worker_t *
     s_worker_require (broker_t *self, zframe_t *address);
@@ -1558,22 +1558,22 @@ static void
                    char *option, zmsg_t *msg);
 static void
     s_worker_waiting (broker_t *self, worker_t *worker);
- 
+
 //  客户端使用的函数
 static void
     s_client_process (broker_t *self, zframe_t *sender, zmsg_t *msg);
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  主程序
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
- 
+
     broker_t *self = s_broker_new (verbose);
     s_broker_bind (self, "tcp://*:5555");
- 
+
     //  接受并处理消息，直至程序被中止
     while (TRUE) {
         zmq_pollitem_t items [] = {
@@ -1581,7 +1581,7 @@ int main (int argc, char *argv [])
         int rc = zmq_poll (items, 1, HEARTBEAT_INTERVAL * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  中断
- 
+
         //  Process next input message, if any
         if (items [0].revents & ZMQ_POLLIN) {
             zmsg_t *msg = zmsg_recv (self->socket);
@@ -1594,7 +1594,7 @@ int main (int argc, char *argv [])
             zframe_t *sender = zmsg_pop (msg);
             zframe_t *empty  = zmsg_pop (msg);
             zframe_t *header = zmsg_pop (msg);
- 
+
             if (zframe_streq (header, MDPC_CLIENT))
                 s_client_process (self, sender, msg);
             else
@@ -1623,20 +1623,20 @@ int main (int argc, char *argv [])
     }
     if (zctx_interrupted)
         printf ("W: 收到中断消息，关闭中...\n");
- 
+
     s_broker_destroy (&self);
     return 0;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  代理对象的构造函数
- 
+
 static broker_t *
 s_broker_new (int verbose)
 {
     broker_t *self = (broker_t *) zmalloc (sizeof (broker_t));
- 
+
     //  初始化代理状态
     self->ctx = zctx_new ();
     self->socket = zsocket_new (self->ctx, ZMQ_ROUTER);
@@ -1647,10 +1647,10 @@ s_broker_new (int verbose)
     self->heartbeat_at = zclock_time () + HEARTBEAT_INTERVAL;
     return self;
 }
- 
+
 //  ---------------------------------------------------------------------
 //  代理对象的析构函数
- 
+
 static void
 s_broker_destroy (broker_t **self_p)
 {
@@ -1665,21 +1665,21 @@ s_broker_destroy (broker_t **self_p)
         *self_p = NULL;
     }
 }
- 
+
 //  ---------------------------------------------------------------------
 //  将代理套接字绑定至端点，可以重复调用该函数
 //  我们使用一个套接字来同时处理client和worker
- 
+
 void
 s_broker_bind (broker_t *self, char *endpoint)
 {
     zsocket_bind (self->socket, endpoint);
     zclock_log ("I: MDP broker/0.1.1 is active at %s", endpoint);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  删除空闲状态中过期的worker
- 
+
 static void
 s_broker_purge_workers (broker_t *self)
 {
@@ -1690,21 +1690,21 @@ s_broker_purge_workers (broker_t *self)
         if (self->verbose)
             zclock_log ("I: 正在删除过期的worker: %s",
                 worker->identity);
- 
+
         s_worker_delete (self, worker, 0);
         worker = (worker_t *) zlist_first (self->waiting);
     }
 }
- 
+
 //  ---------------------------------------------------------------------
 //  定位或创建新的服务项
- 
+
 static service_t *
 s_service_require (broker_t *self, zframe_t *service_frame)
 {
     assert (service_frame);
     char *name = zframe_strdup (service_frame);
- 
+
     service_t *service =
         (service_t *) zhash_lookup (self->services, name);
     if (service == NULL) {
@@ -1719,13 +1719,13 @@ s_service_require (broker_t *self, zframe_t *service_frame)
     }
     else
         free (name);
- 
+
     return service;
 }
- 
+
 //  ---------------------------------------------------------------------
 //  当服务从broker->services中移除时销毁该服务对象
- 
+
 static void
 s_service_destroy (void *argument)
 {
@@ -1740,17 +1740,17 @@ s_service_destroy (void *argument)
     free (service->name);
     free (service);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  可能时，分发请求给等待中的worker
- 
+
 static void
 s_service_dispatch (broker_t *self, service_t *service, zmsg_t *msg)
 {
     assert (service);
     if (msg)                    //  将消息加入队列
         zlist_append (service->requests, msg);
- 
+
     s_broker_purge_workers (self);
     while (zlist_size (service->waiting)
         && zlist_size (service->requests))
@@ -1762,10 +1762,10 @@ s_service_dispatch (broker_t *self, service_t *service, zmsg_t *msg)
         zmsg_destroy (&msg);
     }
 }
- 
+
 //  ---------------------------------------------------------------------
 //  使用8/MMI协定处理内部服务
- 
+
 static void
 s_service_internal (broker_t *self, zframe_t *service_frame, zmsg_t *msg)
 {
@@ -1779,9 +1779,9 @@ s_service_internal (broker_t *self, zframe_t *service_frame, zmsg_t *msg)
     }
     else
         return_code = "501";
- 
+
     zframe_reset (zmsg_last (msg), return_code, strlen (return_code));
- 
+
     //  移除并保存返回给client的信封，插入协议头信息和服务名称，并重新包装信封
     zframe_t *client = zmsg_unwrap (msg);
     zmsg_push (msg, zframe_dup (service_frame));
@@ -1789,20 +1789,20 @@ s_service_internal (broker_t *self, zframe_t *service_frame, zmsg_t *msg)
     zmsg_wrap (msg, client);
     zmsg_send (&msg, self->socket);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  按需创建worker
- 
+
 static worker_t *
 s_worker_require (broker_t *self, zframe_t *address)
 {
     assert (address);
- 
+
     //  self->workers使用wroker的标识为键
     char *identity = zframe_strhex (address);
     worker_t *worker =
         (worker_t *) zhash_lookup (self->workers, identity);
- 
+
     if (worker == NULL) {
         worker = (worker_t *) zmalloc (sizeof (worker_t));
         worker->identity = identity;
@@ -1816,17 +1816,17 @@ s_worker_require (broker_t *self, zframe_t *address)
         free (identity);
     return worker;
 }
- 
+
 //  ---------------------------------------------------------------------
 //  从所有数据结构中删除wroker，并销毁worker对象
- 
+
 static void
 s_worker_delete (broker_t *self, worker_t *worker, int disconnect)
 {
     assert (worker);
     if (disconnect)
         s_worker_send (self, worker, MDPW_DISCONNECT, NULL, NULL);
- 
+
     if (worker->service) {
         zlist_remove (worker->service->waiting, worker);
         worker->service->workers--;
@@ -1835,10 +1835,10 @@ s_worker_delete (broker_t *self, worker_t *worker, int disconnect)
     //  以下方法间接调用了s_worker_destroy()方法
     zhash_delete (self->workers, worker->identity);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  当worker从broker->workers中移除时，销毁worker对象
- 
+
 static void
 s_worker_destroy (void *argument)
 {
@@ -1847,21 +1847,21 @@ s_worker_destroy (void *argument)
     free (worker->identity);
     free (worker);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  处理worker发送来的消息
- 
+
 static void
 s_worker_process (broker_t *self, zframe_t *sender, zmsg_t *msg)
 {
     assert (zmsg_size (msg) >= 1);     //  消息中至少包含命令帧
- 
+
     zframe_t *command = zmsg_pop (msg);
     char *identity = zframe_strhex (sender);
     int worker_ready = (zhash_lookup (self->workers, identity) != NULL);
     free (identity);
     worker_t *worker = s_worker_require (self, sender);
- 
+
     if (zframe_streq (command, MDPW_READY)) {
         //  若worker队列中已有该worker，但仍收到了它的“已就绪”消息，则删除这个worker。
         if (worker_ready)
@@ -1910,26 +1910,26 @@ s_worker_process (broker_t *self, zframe_t *sender, zmsg_t *msg)
     free (command);
     zmsg_destroy (&msg);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  发送消息给worker
 //  如果指针指向了一条消息，发送它，但不销毁它，因为这是调用者的工作
- 
+
 static void
 s_worker_send (broker_t *self, worker_t *worker, char *command,
                char *option, zmsg_t *msg)
 {
     msg = msg? zmsg_dup (msg): zmsg_new ();
- 
+
     //  将协议信封压入消息顶部
     if (option)
         zmsg_pushstr (msg, option);
     zmsg_pushstr (msg, command);
     zmsg_pushstr (msg, MDPW_WORKER);
- 
+
     //  在消息顶部插入路由帧
     zmsg_wrap (msg, zframe_dup (worker->address));
- 
+
     if (self->verbose) {
         zclock_log ("I: 正在发送消息给worker %s",
             mdps_commands [(int) *command]);
@@ -1937,10 +1937,10 @@ s_worker_send (broker_t *self, worker_t *worker, char *command,
     }
     zmsg_send (&msg, self->socket);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  正在等待的worker
- 
+
 static void
 s_worker_waiting (broker_t *self, worker_t *worker)
 {
@@ -1950,18 +1950,18 @@ s_worker_waiting (broker_t *self, worker_t *worker)
     worker->expiry = zclock_time () + HEARTBEAT_EXPIRY;
     s_service_dispatch (self, worker->service, NULL);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  处理client发来的请求
- 
+
 static void
 s_client_process (broker_t *self, zframe_t *sender, zmsg_t *msg)
 {
     assert (zmsg_size (msg) >= 2);     //  服务名称 + 请求内容
- 
+
     zframe_t *service_frame = zmsg_pop (msg);
     service_t *service = s_service_require (self, service_frame);
- 
+
     //  为应答内容设置请求方的地址
     zmsg_wrap (msg, zframe_dup (sender));
     if (zframe_size (service_frame) >= 4
@@ -2003,20 +2003,20 @@ s_client_process (broker_t *self, zframe_t *sender, zmsg_t *msg)
 //  当client处理完毕时会发送信号给主程序。
 //
 #include "czmq.h"
- 
+
 static void
 client_task (void *args, zctx_t *ctx, void *pipe)
 {
     void *client = zsocket_new (ctx, ZMQ_DEALER);
     zmq_setsockopt (client, ZMQ_IDENTITY, "C", 1);
     zsocket_connect (client, "tcp://localhost:5555");
- 
+
     printf ("开始测试...\n");
     zclock_sleep (100);
- 
+
     int requests;
     int64_t start;
- 
+
     printf ("同步 round-trip 测试...\n");
     start = zclock_time ();
     for (requests = 0; requests < 10000; requests++) {
@@ -2026,7 +2026,7 @@ client_task (void *args, zctx_t *ctx, void *pipe)
     }
     printf (" %d 次/秒\n",
         (1000 * 10000) / (int) (zclock_time () - start));
- 
+
     printf ("异步 round-trip 测试...\n");
     start = zclock_time ();
     for (requests = 0; requests < 100000; requests++)
@@ -2037,10 +2037,10 @@ client_task (void *args, zctx_t *ctx, void *pipe)
     }
     printf (" %d 次/秒\n",
         (1000 * 100000) / (int) (zclock_time () - start));
- 
+
     zstr_send (pipe, "完成");
 }
- 
+
 static void *
 worker_task (void *args)
 {
@@ -2048,7 +2048,7 @@ worker_task (void *args)
     void *worker = zsocket_new (ctx, ZMQ_DEALER);
     zmq_setsockopt (worker, ZMQ_IDENTITY, "W", 1);
     zsocket_connect (worker, "tcp://localhost:5556");
- 
+
     while (1) {
         zmsg_t *msg = zmsg_recv (worker);
         zmsg_send (&msg, worker);
@@ -2056,7 +2056,7 @@ worker_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 static void *
 broker_task (void *args)
 {
@@ -2066,7 +2066,7 @@ broker_task (void *args)
     void *backend = zsocket_new (ctx, ZMQ_ROUTER);
     zsocket_bind (frontend, "tcp://*:5555");
     zsocket_bind (backend,  "tcp://*:5556");
- 
+
     //  初始化轮询对象
     zmq_pollitem_t items [] = {
         { frontend, 0, ZMQ_POLLIN, 0 },
@@ -2094,7 +2094,7 @@ broker_task (void *args)
     zctx_destroy (&ctx);
     return NULL;
 }
- 
+
 int main (void)
 {
     //  创建线程
@@ -2102,11 +2102,11 @@ int main (void)
     void *client = zthread_fork (ctx, client_task, NULL);
     zthread_new (ctx, worker_task, NULL);
     zthread_new (ctx, broker_task, NULL);
- 
+
     //  等待client端管道的信号
     char *signal = zstr_recv (client);
     free (signal);
- 
+
     zctx_destroy (&ctx);
     return 0;
 }
@@ -2142,37 +2142,37 @@ zmsg_t  *mdcli_recv    (mdcli_t *self);
 ```c
 /*  =====================================================================
     mdcliapi2.c
- 
+
     Majordomo Protocol Client API (async version)
     Implements the MDP/Worker spec at http://rfc.zeromq.org/spec:7.
- 
+
     ---------------------------------------------------------------------
     Copyright (c) 1991-2011 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
- 
+
     This file is part of the ZeroMQ Guide: http://zguide.zeromq.org
- 
+
     This is free software; you can redistribute it and/or modify it under
     the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 3 of the License, or (at
     your option) any later version.
- 
+
     This software is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
     Lesser General Public License for more details.
- 
+
     You should have received a copy of the GNU Lesser General Public
     License along with this program. If not, see
     <http://www.gnu.org/licenses/>.
     =====================================================================
 */
- 
+
 #include "mdcliapi2.h"
- 
+
 //  类结构
 //  使用成员函数访问属性
- 
+
 struct _mdcli_t {
     zctx_t *ctx;                //  上下文
     char *broker;
@@ -2180,11 +2180,11 @@ struct _mdcli_t {
     int verbose;                //  在标准输出打印运行状态
     int timeout;                //  请求超时时间
 };
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  连接或重连代理
- 
+
 void s_mdcli_connect_to_broker (mdcli_t *self)
 {
     if (self->client)
@@ -2194,30 +2194,30 @@ void s_mdcli_connect_to_broker (mdcli_t *self)
     if (self->verbose)
         zclock_log ("I: 正在连接代理 %s...", self->broker);
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  构造函数
- 
+
 mdcli_t *
 mdcli_new (char *broker, int verbose)
 {
     assert (broker);
- 
+
     mdcli_t *self = (mdcli_t *) zmalloc (sizeof (mdcli_t));
     self->ctx = zctx_new ();
     self->broker = strdup (broker);
     self->verbose = verbose;
     self->timeout = 2500;           //  毫秒
- 
+
     s_mdcli_connect_to_broker (self);
     return self;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  析构函数
- 
+
 void
 mdcli_destroy (mdcli_t **self_p)
 {
@@ -2230,30 +2230,30 @@ mdcli_destroy (mdcli_t **self_p)
         *self_p = NULL;
     }
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  设置请求超时时间
- 
+
 void
 mdcli_set_timeout (mdcli_t *self, int timeout)
 {
     assert (self);
     self->timeout = timeout;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  发送请求给代理
 //  取得请求消息的所有权，发送后销毁
- 
+
 int
 mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
 {
     assert (self);
     assert (request_p);
     zmsg_t *request = *request_p;
- 
+
     //  在消息顶部加入协议规定的帧
     //  Frame 0: empty (模拟REQ套接字的行为)
     //  Frame 1: "MDPCxy" (6个字节, MDP/Client x.y)
@@ -2268,24 +2268,24 @@ mdcli_send (mdcli_t *self, char *service, zmsg_t **request_p)
     zmsg_send (&request, self->client);
     return 0;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  获取应答消息，若无则返回NULL；
 //  该函数不会尝试从代理的崩溃中恢复，
 //  因为我们没有记录那些未收到应答的请求，所以也无法重发。
- 
+
 zmsg_t *
 mdcli_recv (mdcli_t *self)
 {
     assert (self);
- 
+
     //  轮询套接字以获取应答
     zmq_pollitem_t items [] = { { self->client, 0, ZMQ_POLLIN, 0 } };
     int rc = zmq_poll (items, 1, self->timeout * ZMQ_POLL_MSEC);
     if (rc == -1)
         return NULL;            //  中断
- 
+
     //  收到应答后进行处理
     if (items [0].revents & ZMQ_POLLIN) {
         zmsg_t *msg = zmsg_recv (self->client);
@@ -2295,18 +2295,18 @@ mdcli_recv (mdcli_t *self)
         }
         //  不要处理错误，直接报出
         assert (zmsg_size (msg) >= 4);
- 
+
         zframe_t *empty = zmsg_pop (msg);
         assert (zframe_streq (empty, ""));
         zframe_destroy (&empty);
- 
+
         zframe_t *header = zmsg_pop (msg);
         assert (zframe_streq (header, MDPC_CLIENT));
         zframe_destroy (&header);
- 
+
         zframe_t *service = zmsg_pop (msg);
         zframe_destroy (&service);
- 
+
         return msg;     //  Success
     }
     if (zctx_interrupted)
@@ -2314,7 +2314,7 @@ mdcli_recv (mdcli_t *self)
     else
     if (self->verbose)
         zclock_log ("W: 严重错误，放弃请求");
- 
+
     return NULL;
 }
 ```
@@ -2330,12 +2330,12 @@ mdcli_recv (mdcli_t *self)
 //
 //  直接编译源码，而不创建类库
 #include "mdcliapi2.c"
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
     mdcli_t *session = mdcli_new ("tcp://localhost:5555", verbose);
- 
+
     int count;
     for (count = 0; count < 100000; count++) {
         zmsg_t *request = zmsg_new ();
@@ -2414,22 +2414,22 @@ sys     0m0.470s
 //
 //  MMI echo 服务查询示例程序
 //
- 
+
 //  让我们直接编译，不生成类库
 #include "mdcliapi.c"
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
     mdcli_t *session = mdcli_new ("tcp://localhost:5555", verbose);
- 
+
     //  我们需要查询的服务名称
     zmsg_t *request = zmsg_new ();
     zmsg_addstr (request, "echo");
- 
+
     //  发送给“服务查询”服务的消息
     zmsg_t *reply = mdcli_send (session, "mmi.service", &request);
- 
+
     if (reply) {
         char *reply_code = zframe_strdup (zmsg_first (reply));
         printf ("查询 echo 服务的结果: %s\n", reply_code);
@@ -2438,7 +2438,7 @@ int main (int argc, char *argv [])
     }
     else
         printf ("E: 代理无响应，请确认它正在工作\n");
- 
+
     mdcli_destroy (&session);
     return 0;
 }
@@ -2563,10 +2563,10 @@ int main (int argc, char *argv [])
 //
 //  巨人模式client示例
 //  实现 http://rfc.zeromq.org/spec:9 协议中的client端
- 
+
 //  让我们直接编译，不创建类库
 #include "mdcliapi.c"
- 
+
 //  请求TSP协议下的服务
 //  如果成功则返回应答（状态码：200），否则返回NULL
 //
@@ -2593,30 +2593,30 @@ s_service_call (mdcli_t *session, char *service, zmsg_t **request_p)
     }
     else
         exit (EXIT_SUCCESS);    //  中断或发生错误
- 
+
     zmsg_destroy (&reply);
     return NULL;        //  请求不成功，但不返回失败原因
 }
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
     mdcli_t *session = mdcli_new ("tcp://localhost:5555", verbose);
- 
+
     //  1. 发送echo服务的请求给巨人
     zmsg_t *request = zmsg_new ();
     zmsg_addstr (request, "echo");
     zmsg_addstr (request, "Hello world");
     zmsg_t *reply = s_service_call (
         session, "titanic.request", &request);
- 
+
     zframe_t *uuid = NULL;
     if (reply) {
         uuid = zmsg_pop (reply);
         zmsg_destroy (&reply);
         zframe_print (uuid, "I: request UUID ");
     }
- 
+
     //  2. 等待应答
     while (!zctx_interrupted) {
         zclock_sleep (100);
@@ -2624,13 +2624,13 @@ int main (int argc, char *argv [])
         zmsg_add (request, zframe_dup (uuid));
         zmsg_t *reply = s_service_call (
             session, "titanic.reply", &request);
- 
+
         if (reply) {
             char *reply_string = zframe_strdup (zmsg_last (reply));
             printf ("Reply: %s\n", reply_string);
             free (reply_string);
             zmsg_destroy (&reply);
- 
+
             //  3. 关闭请求
             request = zmsg_new ();
             zmsg_add (request, zframe_dup (uuid));
@@ -2660,17 +2660,17 @@ int main (int argc, char *argv [])
 //  巨人模式 - 服务
 //
 //  实现 http://rfc.zeromq.org/spec:9 协议的服务端
- 
+
 //  让我们直接编译，不创建类库
 #include "mdwrkapi.c"
 #include "mdcliapi.c"
- 
+
 #include "zfile.h"
 #include <uuid/uuid.h>
- 
+
 //  返回一个可打印的唯一编号（UUID）
 //  调用者负责释放UUID字符串的内存
- 
+
 static char *
 s_generate_uuid (void)
 {
@@ -2685,47 +2685,47 @@ s_generate_uuid (void)
     }
     return uuidstr;
 }
- 
+
 //  根据UUID生成用于保存请求内容的文件名，并返回
- 
+
 #define TITANIC_DIR ".titanic"
- 
+
 static char *
 s_request_filename (char *uuid) {
     char *filename = malloc (256);
     snprintf (filename, 256, TITANIC_DIR "/%s.req", uuid);
     return filename;
 }
- 
+
 //  根据UUID生成用于保存应答内容的文件名，并返回
- 
+
 static char *
 s_reply_filename (char *uuid) {
     char *filename = malloc (256);
     snprintf (filename, 256, TITANIC_DIR "/%s.rep", uuid);
     return filename;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  巨人模式 - 请求服务
- 
+
 static void
 titanic_request (void *args, zctx_t *ctx, void *pipe)
 {
     mdwrk_t *worker = mdwrk_new (
         "tcp://localhost:5555", "titanic.request", 0);
     zmsg_t *reply = NULL;
- 
+
     while (TRUE) {
         //  若应答非空则发送，再从代理处获得新的请求
         zmsg_t *request = mdwrk_recv (worker, &reply);
         if (!request)
             break;      //  中断并退出
- 
+
         //  确保消息目录是存在的
         file_mkdir (TITANIC_DIR);
- 
+
         //  生成UUID，并将消息保存至磁盘
         char *uuid = s_generate_uuid ();
         char *filename = s_request_filename (uuid);
@@ -2735,12 +2735,12 @@ titanic_request (void *args, zctx_t *ctx, void *pipe)
         fclose (file);
         free (filename);
         zmsg_destroy (&request);
- 
+
         //  将UUID加入队列
         reply = zmsg_new ();
         zmsg_addstr (reply, uuid);
         zmsg_send (&reply, pipe);
- 
+
         //  将UUID返回给客户端
         //  将由循环顶部的mdwrk_recv()函数完成
         reply = zmsg_new ();
@@ -2750,23 +2750,23 @@ titanic_request (void *args, zctx_t *ctx, void *pipe)
     }
     mdwrk_destroy (&worker);
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  巨人模式 - 应答服务
- 
+
 static void *
 titanic_reply (void *context)
 {
     mdwrk_t *worker = mdwrk_new (
         "tcp://localhost:5555", "titanic.reply", 0);
     zmsg_t *reply = NULL;
- 
+
     while (TRUE) {
         zmsg_t *request = mdwrk_recv (worker, &reply);
         if (!request)
             break;      //  中断并退出
- 
+
         char *uuid = zmsg_popstr (request);
         char *req_filename = s_request_filename (uuid);
         char *rep_filename = s_reply_filename (uuid);
@@ -2792,23 +2792,23 @@ titanic_reply (void *context)
     mdwrk_destroy (&worker);
     return 0;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  巨人模式 - 关闭请求
- 
+
 static void *
 titanic_close (void *context)
 {
     mdwrk_t *worker = mdwrk_new (
         "tcp://localhost:5555", "titanic.close", 0);
     zmsg_t *reply = NULL;
- 
+
     while (TRUE) {
         zmsg_t *request = mdwrk_recv (worker, &reply);
         if (!request)
             break;      //  中断并退出
- 
+
         char *uuid = zmsg_popstr (request);
         char *req_filename = s_request_filename (uuid);
         char *rep_filename = s_reply_filename (uuid);
@@ -2817,7 +2817,7 @@ titanic_close (void *context)
         free (uuid);
         free (req_filename);
         free (rep_filename);
- 
+
         zmsg_destroy (&request);
         reply = zmsg_new ();
         zmsg_addstr (reply, "200");
@@ -2825,9 +2825,9 @@ titanic_close (void *context)
     mdwrk_destroy (&worker);
     return 0;
 }
- 
+
 //  处理某个请求，成功则返回1
- 
+
 static int
 s_service_success (mdcli_t *client, char *uuid)
 {
@@ -2835,16 +2835,16 @@ s_service_success (mdcli_t *client, char *uuid)
     char *filename = s_request_filename (uuid);
     FILE *file = fopen (filename, "r");
     free (filename);
- 
+
     //  如果client已经关闭了该请求，则返回1
     if (!file)
         return 1;
- 
+
     zmsg_t *request = zmsg_load (file);
     fclose (file);
     zframe_t *service = zmsg_pop (request);
     char *service_name = zframe_strdup (service);
- 
+
     //  使用MMI协议检查服务是否可用
     zmsg_t *mmi_request = zmsg_new ();
     zmsg_add (mmi_request, service);
@@ -2852,7 +2852,7 @@ s_service_success (mdcli_t *client, char *uuid)
     int service_ok = (mmi_reply
         && zframe_streq (zmsg_first (mmi_reply), "200"));
     zmsg_destroy (&mmi_reply);
- 
+
     if (service_ok) {
         zmsg_t *reply = mdcli_send (client, service_name, &request);
         if (reply) {
@@ -2868,26 +2868,26 @@ s_service_success (mdcli_t *client, char *uuid)
     }
     else
         zmsg_destroy (&request);
- 
+
     free (service_name);
     return 0;
 }
- 
- 
+
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
     zctx_t *ctx = zctx_new ();
- 
+
     //  创建MDP客户端会话
     mdcli_t *client = mdcli_new ("tcp://localhost:5555", verbose);
     mdcli_set_timeout (client, 1000);  //  1 秒
     mdcli_set_retries (client, 1);     //  只尝试一次
- 
+
     void *request_pipe = zthread_fork (ctx, titanic_request, NULL);
     zthread_new (ctx, titanic_reply, NULL);
     zthread_new (ctx, titanic_close, NULL);
- 
+
     //  主循环
     while (TRUE) {
         //  如果没有活动，我们将每秒循环一次
@@ -2898,7 +2898,7 @@ int main (int argc, char *argv [])
         if (items [0].revents & ZMQ_POLLIN) {
             //  确保消息目录是存在的
             file_mkdir (TITANIC_DIR);
- 
+
             //  将UUID添加到队列中，使用“-”号标识等待中的请求
             zmsg_t *msg = zmsg_recv (request_pipe);
             if (!msg)
@@ -3136,11 +3136,11 @@ Figure # - High-availability pair, during failover
 //  双子星模式 - 服务端
 //
 #include "czmq.h"
- 
+
 //  发送状态信息的间隔时间
 //  如果对方在两次心跳过后都没有应答，则视为断开
 #define HEARTBEAT 1000          //  In msecs
- 
+
 //  服务器状态枚举
 typedef enum {
     STATE_PRIMARY = 1,          //  主机，等待同伴连接
@@ -3148,7 +3148,7 @@ typedef enum {
     STATE_ACTIVE = 3,           //  激活态，处理应用程序请求
     STATE_PASSIVE = 4           //  被动态，不接收请求
 } state_t;
- 
+
 //  对话节点事件
 typedef enum {
     PEER_PRIMARY = 1,           //  主机
@@ -3157,18 +3157,18 @@ typedef enum {
     PEER_PASSIVE = 4,           //  被动态
     CLIENT_REQUEST = 5          //  客户端请求
 } event_t;
- 
+
 //  有限状态机
 typedef struct {
     state_t state;              //  当前状态
     event_t event;              //  当前事件
     int64_t peer_expiry;        //  判定节点死亡的时限
 } bstar_t;
- 
- 
+
+
 //  执行有限状态机（将事件绑定至状态）；
 //  发生异常时返回TRUE。
- 
+
 static Bool
 s_state_machine (bstar_t *fsm)
 {
@@ -3246,8 +3246,8 @@ s_state_machine (bstar_t *fsm)
     }
     return exception;
 }
- 
- 
+
+
 int main (int argc, char *argv [])
 {
     //  命令行参数可以为：
@@ -3258,7 +3258,7 @@ int main (int argc, char *argv [])
     void *statesub = zsocket_new (ctx, ZMQ_SUB);
     void *frontend = zsocket_new (ctx, ZMQ_ROUTER);
     bstar_t fsm = { 0 };
- 
+
     if (argc == 2 && streq (argv [1], "-p")) {
         printf ("I: 主机master，等待备机（slave）连接。\n");
         zsocket_bind (frontend, "tcp://*:5001");
@@ -3281,7 +3281,7 @@ int main (int argc, char *argv [])
     }
     //  设定下一次发送状态的时间
     int64_t send_state_at = zclock_time () + HEARTBEAT;
- 
+
     while (!zctx_interrupted) {
         zmq_pollitem_t items [] = {
             { frontend, 0, ZMQ_POLLIN, 0 },
@@ -3293,7 +3293,7 @@ int main (int argc, char *argv [])
         int rc = zmq_poll (items, 2, time_left * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  上下文对象被关闭
- 
+
         if (items [0].revents & ZMQ_POLLIN) {
             //  收到客户端请求
             zmsg_t *msg = zmsg_recv (frontend);
@@ -3323,7 +3323,7 @@ int main (int argc, char *argv [])
     }
     if (zctx_interrupted)
         printf ("W: 中断\n");
- 
+
     //  关闭套接字和上下文
     zctx_destroy (&ctx);
     return 0;
@@ -3339,28 +3339,28 @@ int main (int argc, char *argv [])
 //  双子星模式 - 客户端
 //
 #include "czmq.h"
- 
+
 #define REQUEST_TIMEOUT     1000    //  毫秒
 #define SETTLE_DELAY        2000    //  超时时间
- 
+
 int main (void)
 {
     zctx_t *ctx = zctx_new ();
- 
+
     char *server [] = { "tcp://localhost:5001", "tcp://localhost:5002" };
     uint server_nbr = 0;
- 
+
     printf ("I: 正在连接服务器 %s...\n", server [server_nbr]);
     void *client = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (client, server [server_nbr]);
- 
+
     int sequence = 0;
     while (!zctx_interrupted) {
         //  发送请求并等待应答
         char request [10];
         sprintf (request, "%d", ++sequence);
         zstr_send (client, request);
- 
+
         int expect_reply = 1;
         while (expect_reply) {
             //  轮询套接字
@@ -3368,7 +3368,7 @@ int main (void)
             int rc = zmq_poll (items, 1, REQUEST_TIMEOUT * ZMQ_POLL_MSEC);
             if (rc == -1)
                 break;          //  中断
- 
+
             //  处理应答
             if (items [0].revents & ZMQ_POLLIN) {
                 //  审核应答编号
@@ -3394,7 +3394,7 @@ int main (void)
                         server [server_nbr]);
                 client = zsocket_new (ctx, ZMQ_REQ);
                 zsocket_connect (client, server [server_nbr]);
- 
+
                 //  使用新套接字重发请求
                 zstr_send (client, request);
             }
@@ -3469,21 +3469,21 @@ These are the main limitations of the Binary Star pattern:
 ```c
 // 创建双子星模式实例，使用本地（绑定）和远程（连接）端点来设置节点对。
 bstar_t *bstar_new (int primary, char *local, char *remote);
- 
+
 // 销毁实例
 void bstar_destroy (bstar_t **self_p);
- 
+
 // 返回底层的zloop反应堆，用以添加定时器、读取器、注册和取消等功能。
 zloop_t *bstar_zloop (bstar_t *self);
- 
+
 // 注册投票读取器
 int bstar_voter (bstar_t *self, char *endpoint, int type,
 zloop_fn handler, void *arg);
- 
+
 // 注册状态机处理器
 void bstar_new_master (bstar_t *self, zloop_fn handler, void *arg);
 void bstar_new_slave (bstar_t *self, zloop_fn handler, void *arg);
- 
+
 // 开启反应堆，当回调函数返回-1，或进程收到SIGINT、SIGTERM信号时中止。
 int bstar_start (bstar_t *self);
 ```
@@ -3495,31 +3495,31 @@ int bstar_start (bstar_t *self);
 ```c
 /*  =====================================================================
     bstar - Binary Star reactor
- 
+
     ---------------------------------------------------------------------
     Copyright (c) 1991-2011 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
- 
+
     This file is part of the ZeroMQ Guide: http://zguide.zeromq.org
- 
+
     This is free software; you can redistribute it and/or modify it under
     the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 3 of the License, or (at
     your option) any later version.
- 
+
     This software is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
     Lesser General Public License for more details.
- 
+
     You should have received a copy of the GNU Lesser General Public
     License along with this program. If not, see
     <http://www.gnu.org/licenses/>.
     =====================================================================
 */
- 
+
 #include "bstar.h"
- 
+
 //  服务器状态枚举
 typedef enum {
     STATE_PRIMARY = 1,          //  主机，等待同伴连接
@@ -3527,7 +3527,7 @@ typedef enum {
     STATE_ACTIVE = 3,           //  激活态，处理应用程序请求
     STATE_PASSIVE = 4           //  被动态，不接收请求
 } state_t;
- 
+
 //  对话节点事件
 typedef enum {
     PEER_PRIMARY = 1,           //  主机
@@ -3536,14 +3536,14 @@ typedef enum {
     PEER_PASSIVE = 4,           //  被动态
     CLIENT_REQUEST = 5          //  客户端请求
 } event_t;
- 
- 
+
+
 //  发送状态信息的间隔时间
 //  如果对方在两次心跳过后都没有应答，则视为断开
 #define BSTAR_HEARTBEAT     1000        //  In msecs
- 
+
 //  类结构
- 
+
 struct _bstar_t {
     zctx_t *ctx;                //  私有上下文
     zloop_t *loop;              //  反应堆循环
@@ -3559,12 +3559,12 @@ struct _bstar_t {
     zloop_fn *slave_fn;         //  成为slave时回调
     void *slave_arg;            //  参数
 };
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  执行有限状态机（将事件绑定至状态）；
 //  发生异常时返回-1，正确时返回0。
- 
+
 static int
 s_execute_fsm (bstar_t *self)
 {
@@ -3659,11 +3659,11 @@ s_execute_fsm (bstar_t *self)
     }
     return rc;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  反应堆事件处理程序
- 
+
 //  发送状态信息
 int s_send_state (zloop_t *loop, void *socket, void *arg)
 {
@@ -3671,7 +3671,7 @@ int s_send_state (zloop_t *loop, void *socket, void *arg)
     zstr_sendf (self->statepub, "%d", self->state);
     return 0;
 }
- 
+
 //  接收状态信息，启动有限状态机
 int s_recv_state (zloop_t *loop, void *socket, void *arg)
 {
@@ -3684,7 +3684,7 @@ int s_recv_state (zloop_t *loop, void *socket, void *arg)
     }
     return s_execute_fsm (self);
 }
- 
+
 //  收到应用程序请求，判断是否接收
 int s_voter_ready (zloop_t *loop, void *socket, void *arg)
 {
@@ -3702,42 +3702,42 @@ int s_voter_ready (zloop_t *loop, void *socket, void *arg)
     }
     return 0;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  构造函数
- 
+
 bstar_t *
 bstar_new (int primary, char *local, char *remote)
 {
     bstar_t
         *self;
- 
+
     self = (bstar_t *) zmalloc (sizeof (bstar_t));
- 
+
     //  初始化双子星
     self->ctx = zctx_new ();
     self->loop = zloop_new ();
     self->state = primary? STATE_PRIMARY: STATE_BACKUP;
- 
+
     //  创建状态PUB套接字
     self->statepub = zsocket_new (self->ctx, ZMQ_PUB);
     zsocket_bind (self->statepub, local);
- 
+
     //  创建状态SUB套接字
     self->statesub = zsocket_new (self->ctx, ZMQ_SUB);
     zsocket_connect (self->statesub, remote);
- 
+
     //  设置基本的反应堆事件处理器
     zloop_timer (self->loop, BSTAR_HEARTBEAT, 0, s_send_state, self);
     zloop_reader (self->loop, self->statesub, s_recv_state, self);
     return self;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  析构函数
- 
+
 void
 bstar_destroy (bstar_t **self_p)
 {
@@ -3750,24 +3750,24 @@ bstar_destroy (bstar_t **self_p)
         *self_p = NULL;
     }
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  返回底层zloop对象，用以添加额外的定时器、阅读器等。
- 
+
 zloop_t *
 bstar_zloop (bstar_t *self)
 {
     return self->loop;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  创建套接字，连接至本地端点，注册成为阅读器；
 //  只有当有限状态机允许时才会读取该套接字；
 //  从该套接字获得的消息将作为一次“投票”；
 //  我们要求双子星模式中只有一个“投票”套接字。
- 
+
 int
 bstar_voter (bstar_t *self, char *endpoint, int type, zloop_fn handler,
              void *arg)
@@ -3780,10 +3780,10 @@ bstar_voter (bstar_t *self, char *endpoint, int type, zloop_fn handler,
     self->voter_arg = arg;
     return zloop_reader (self->loop, socket, s_voter_ready, self);
 }
- 
+
 //  ---------------------------------------------------------------------
 //  注册状态变化事件处理器
- 
+
 void
 bstar_new_master (bstar_t *self, zloop_fn handler, void *arg)
 {
@@ -3791,7 +3791,7 @@ bstar_new_master (bstar_t *self, zloop_fn handler, void *arg)
     self->master_fn = handler;
     self->master_arg = arg;
 }
- 
+
 void
 bstar_new_slave (bstar_t *self, zloop_fn handler, void *arg)
 {
@@ -3799,19 +3799,19 @@ bstar_new_slave (bstar_t *self, zloop_fn handler, void *arg)
     self->slave_fn = handler;
     self->slave_arg = arg;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  启用或禁止跟踪信息
 void bstar_set_verbose (bstar_t *self, Bool verbose)
 {
     zloop_set_verbose (self->loop, verbose);
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  开启反应堆，当回调函数返回-1，或进程收到SIGINT、SIGTERM信号时中止。
- 
+
 int
 bstar_start (bstar_t *self)
 {
@@ -3828,10 +3828,10 @@ bstar_start (bstar_t *self)
 //
 //  双子星模式服务端，使用bstar反应堆
 //
- 
+
 //  直接编译，不建类库
 #include "bstar.c"
- 
+
 //  Echo service
 int s_echo (zloop_t *loop, void *socket, void *arg)
 {
@@ -3839,7 +3839,7 @@ int s_echo (zloop_t *loop, void *socket, void *arg)
     zmsg_send (&msg, socket);
     return 0;
 }
- 
+
 int main (int argc, char *argv [])
 {
     //  命令行参数可以为：
@@ -3930,7 +3930,7 @@ int main (int argc, char *argv [])
 //  提供echo服务
 //
 #include "czmq.h"
- 
+
 int main (int argc, char *argv [])
 {
     if (argc < 2) {
@@ -3940,7 +3940,7 @@ int main (int argc, char *argv [])
     zctx_t *ctx = zctx_new ();
     void *server = zsocket_new (ctx, ZMQ_REP);
     zsocket_bind (server, argv [1]);
- 
+
     printf ("I: echo服务端点： %s\n", argv [1]);
     while (TRUE) {
         zmsg_t *msg = zmsg_recv (server);
@@ -3950,7 +3950,7 @@ int main (int argc, char *argv [])
     }
     if (zctx_interrupted)
         printf ("W: 中断\n");
- 
+
     zctx_destroy (&ctx);
     return 0;
 }
@@ -3966,18 +3966,18 @@ int main (int argc, char *argv [])
 //  使用REQ套接字请求一个或多个服务端
 //
 #include "czmq.h"
- 
+
 #define REQUEST_TIMEOUT     1000
 #define MAX_RETRIES         3       //  尝试次数
- 
- 
+
+
 static zmsg_t *
 s_try_request (zctx_t *ctx, char *endpoint, zmsg_t *request)
 {
     printf ("I: 在端点 %s 上尝试请求echo服务...\n", endpoint);
     void *client = zsocket_new (ctx, ZMQ_REQ);
     zsocket_connect (client, endpoint);
- 
+
     //  发送请求，并等待应答
     zmsg_t *msg = zmsg_dup (request);
     zmsg_send (&msg, client);
@@ -3986,20 +3986,20 @@ s_try_request (zctx_t *ctx, char *endpoint, zmsg_t *request)
     zmsg_t *reply = NULL;
     if (items [0].revents & ZMQ_POLLIN)
         reply = zmsg_recv (client);
- 
+
     //  关闭套接字
     zsocket_destroy (ctx, client);
     return reply;
 }
- 
- 
+
+
 int main (int argc, char *argv [])
 {
     zctx_t *ctx = zctx_new ();
     zmsg_t *request = zmsg_new ();
     zmsg_addstr (request, "Hello world");
     zmsg_t *reply = NULL;
- 
+
     int endpoints = argc - 1;
     if (endpoints == 0)
         printf ("I: syntax: %s <endpoint> ...\n", argv [0]);
@@ -4028,7 +4028,7 @@ int main (int argc, char *argv [])
     }
     if (reply)
         printf ("服务运作正常\n");
- 
+
     zmsg_destroy (&request);
     zmsg_destroy (&reply);
     zctx_destroy (&ctx);
@@ -4075,7 +4075,7 @@ flclient1 tcp://localhost:5555 tcp://localhost:5556
 //  返回带有请求编号的OK信息
 //
 #include "czmq.h"
- 
+
 int main (int argc, char *argv [])
 {
     if (argc < 2) {
@@ -4085,7 +4085,7 @@ int main (int argc, char *argv [])
     zctx_t *ctx = zctx_new ();
     void *server = zsocket_new (ctx, ZMQ_REP);
     zsocket_bind (server, argv [1]);
- 
+
     printf ("I: 服务已就绪 %s\n", argv [1]);
     while (TRUE) {
         zmsg_t *request = zmsg_recv (server);
@@ -4093,10 +4093,10 @@ int main (int argc, char *argv [])
             break;          //  中断
         //  判断请求内容是否正确
         assert (zmsg_size (request) == 2);
- 
+
         zframe_t *address = zmsg_pop (request);
         zmsg_destroy (&request);
- 
+
         zmsg_t *reply = zmsg_new ();
         zmsg_add (reply, address);
         zmsg_addstr (reply, "OK");
@@ -4104,7 +4104,7 @@ int main (int argc, char *argv [])
     }
     if (zctx_interrupted)
         printf ("W: interrupted\n");
- 
+
     zctx_destroy (&ctx);
     return 0;
 }
@@ -4120,19 +4120,19 @@ int main (int argc, char *argv [])
 //  使用DEALER套接字发送批量消息
 //
 #include "czmq.h"
- 
+
 //  超时时间
 #define GLOBAL_TIMEOUT 2500
- 
+
 //  将客户端API封装成一个类
- 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
- 
+
 //  声明类结构
 typedef struct _flclient_t flclient_t;
- 
+
 flclient_t *
     flclient_new (void);
 void
@@ -4141,12 +4141,12 @@ void
     flclient_connect (flclient_t *self, char *endpoint);
 zmsg_t *
     flclient_request (flclient_t *self, zmsg_t **request_p);
- 
+
 #ifdef __cplusplus
 }
 #endif
- 
- 
+
+
 int main (int argc, char *argv [])
 {
     if (argc == 1) {
@@ -4155,12 +4155,12 @@ int main (int argc, char *argv [])
     }
     //  创建自由者模式客户端
     flclient_t *client = flclient_new ();
- 
+
     //  连接至各个端点
     int argn;
     for (argn = 1; argn < argc; argn++)
         flclient_connect (client, argv [argn]);
- 
+
     //  发送一组请求，并记录时间
     int requests = 10000;
     uint64_t start = zclock_time ();
@@ -4176,42 +4176,42 @@ int main (int argc, char *argv [])
     }
     printf ("平均请求时间: %d 微秒\n",
         (int) (zclock_time () - start) / 10);
- 
+
     flclient_destroy (&client);
     return 0;
 }
- 
- 
- 
+
+
+
 //  --------------------------------------------------------------------
 //  类结构
- 
+
 struct _flclient_t {
     zctx_t *ctx;        //  上下文
     void *socket;       //  用于和服务端通信的DEALER套接字
     size_t servers;     //  以连接的服务端数量
     uint sequence;      //  已发送的请求数
 };
- 
- 
+
+
 //  --------------------------------------------------------------------
 //  Constructor
- 
+
 flclient_t *
 flclient_new (void)
 {
     flclient_t
         *self;
- 
+
     self = (flclient_t *) zmalloc (sizeof (flclient_t));
     self->ctx = zctx_new ();
     self->socket = zsocket_new (self->ctx, ZMQ_DEALER);
     return self;
 }
- 
+
 //  --------------------------------------------------------------------
 //  析构函数
- 
+
 void
 flclient_destroy (flclient_t **self_p)
 {
@@ -4223,10 +4223,10 @@ flclient_destroy (flclient_t **self_p)
         *self_p = NULL;
     }
 }
- 
+
 //  --------------------------------------------------------------------
 //  连接至新的服务端端点
- 
+
 void
 flclient_connect (flclient_t *self, char *endpoint)
 {
@@ -4234,24 +4234,24 @@ flclient_connect (flclient_t *self, char *endpoint)
     zsocket_connect (self->socket, endpoint);
     self->servers++;
 }
- 
+
 //  --------------------------------------------------------------------
 //  发送请求，接收应答
 //  发送后销毁请求
- 
+
 zmsg_t *
 flclient_request (flclient_t *self, zmsg_t **request_p)
 {
     assert (self);
     assert (*request_p);
     zmsg_t *request = *request_p;
- 
+
     //  向消息添加编号和空帧
     char sequence_text [10];
     sprintf (sequence_text, "%u", ++self->sequence);
     zmsg_pushstr (request, sequence_text);
     zmsg_pushstr (request, "");
- 
+
     //  向所有已连接的服务端发送请求
     int server;
     for (server = 0; server < self->servers; server++) {
@@ -4330,13 +4330,13 @@ flclient_request (flclient_t *self, zmsg_t **request_p)
 //  使用ROUTER-ROUTER套接字进行通信；单线程。
 //
 #include "czmq.h"
- 
+
 int main (int argc, char *argv [])
 {
     int verbose = (argc > 1 && streq (argv [1], "-v"));
- 
+
     zctx_t *ctx = zctx_new ();
- 
+
     //  准备服务端套接字，其标识和端点名相同
     char *bind_endpoint = "tcp://*:5555";
     char *connect_endpoint = "tcp://localhost:5555";
@@ -4345,14 +4345,14 @@ int main (int argc, char *argv [])
         ZMQ_IDENTITY, connect_endpoint, strlen (connect_endpoint));
     zsocket_bind (server, bind_endpoint);
     printf ("I: 服务端已准备就绪 %s\n", bind_endpoint);
- 
+
     while (!zctx_interrupted) {
         zmsg_t *request = zmsg_recv (server);
         if (verbose && request)
             zmsg_dump (request);
         if (!request)
             break;          //  中断
- 
+
         //  Frame 0: 客户端标识
         //  Frame 1: 心跳，或客户端控制信息帧
         //  Frame 2: 请求内容
@@ -4373,7 +4373,7 @@ int main (int argc, char *argv [])
     }
     if (zctx_interrupted)
         printf ("W: 中断\n");
- 
+
     zctx_destroy (&ctx);
     return 0;
 }
@@ -4390,17 +4390,17 @@ int main (int argc, char *argv [])
 //
 //  直接编译，不建类库
 #include "flcliapi.c"
- 
+
 int main (void)
 {
     //  创建自由者模式实例
     flcliapi_t *client = flcliapi_new ();
- 
+
     //  链接至服务器端点
     flcliapi_connect (client, "tcp://localhost:5555");
     flcliapi_connect (client, "tcp://localhost:5556");
     flcliapi_connect (client, "tcp://localhost:5557");
- 
+
     //  发送随机请求，计算时间
     int requests = 1000;
     uint64_t start = zclock_time ();
@@ -4416,7 +4416,7 @@ int main (void)
     }
     printf ("平均执行时间： %d usec\n",
         (int) (zclock_time () - start) / 10);
- 
+
     flcliapi_destroy (&client);
     return 0;
 }
@@ -4430,72 +4430,72 @@ int main (void)
 /*  =====================================================================
     flcliapi - Freelance Pattern agent class
     Model 3: uses ROUTER socket to address specific services
- 
+
     ---------------------------------------------------------------------
     Copyright (c) 1991-2011 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
- 
+
     This file is part of the ZeroMQ Guide: http://zguide.zeromq.org
- 
+
     This is free software; you can redistribute it and/or modify it under
     the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 3 of the License, or (at
     your option) any later version.
- 
+
     This software is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
     Lesser General Public License for more details.
- 
+
     You should have received a copy of the GNU Lesser General Public
     License along with this program. If not, see
     <http://www.gnu.org/licenses/>.
     =====================================================================
 */
- 
+
 #include "flcliapi.h"
- 
+
 //  请求超时时间
 #define GLOBAL_TIMEOUT  3000    //  msecs
 //  心跳间隔
 #define PING_INTERVAL   2000    //  msecs
 //  判定服务死亡的时间
 #define SERVER_TTL      6000    //  msecs
- 
- 
+
+
 //  =====================================================================
 //  同步部分，在应用程序层面运行
- 
+
 //  ---------------------------------------------------------------------
 //  类结构
- 
+
 struct _flcliapi_t {
     zctx_t *ctx;        //  上下文
     void *pipe;         //  用于和主线程通信的套接字
 };
- 
+
 //  这是运行后台代理程序的线程
 static void flcliapi_agent (void *args, zctx_t *ctx, void *pipe);
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  构造函数
- 
+
 flcliapi_t *
 flcliapi_new (void)
 {
     flcliapi_t
         *self;
- 
+
     self = (flcliapi_t *) zmalloc (sizeof (flcliapi_t));
     self->ctx = zctx_new ();
     self->pipe = zthread_fork (self->ctx, flcliapi_agent, NULL);
     return self;
 }
- 
+
 //  ---------------------------------------------------------------------
 //  析构函数
- 
+
 void
 flcliapi_destroy (flcliapi_t **self_p)
 {
@@ -4507,11 +4507,11 @@ flcliapi_destroy (flcliapi_t **self_p)
         *self_p = NULL;
     }
 }
- 
+
 //  ---------------------------------------------------------------------
 //  连接至新服务器端点
 //  消息内容：[CONNECT][endpoint]
- 
+
 void
 flcliapi_connect (flcliapi_t *self, char *endpoint)
 {
@@ -4523,16 +4523,16 @@ flcliapi_connect (flcliapi_t *self, char *endpoint)
     zmsg_send (&msg, self->pipe);
     zclock_sleep (100);      //  等待连接
 }
- 
+
 //  ---------------------------------------------------------------------
 //  发送并销毁请求，接收应答
- 
+
 zmsg_t *
 flcliapi_request (flcliapi_t *self, zmsg_t **request_p)
 {
     assert (self);
     assert (*request_p);
- 
+
     zmsg_pushstr (*request_p, "REQUEST");
     zmsg_send (request_p, self->pipe);
     zmsg_t *reply = zmsg_recv (self->pipe);
@@ -4544,21 +4544,21 @@ flcliapi_request (flcliapi_t *self, zmsg_t **request_p)
     }
     return reply;
 }
- 
- 
+
+
 //  =====================================================================
 //  异步部分，在后台运行
- 
+
 //  ---------------------------------------------------------------------
 //  单个服务端信息
- 
+
 typedef struct {
     char *endpoint;             //  服务端端点/套接字标识
     uint alive;                 //  是否在线
     int64_t ping_at;            //  下一次心跳时间
     int64_t expires;            //  过期时间
 } server_t;
- 
+
 server_t *
 server_new (char *endpoint)
 {
@@ -4569,7 +4569,7 @@ server_new (char *endpoint)
     self->expires = zclock_time () + SERVER_TTL;
     return self;
 }
- 
+
 void
 server_destroy (server_t **self_p)
 {
@@ -4581,7 +4581,7 @@ server_destroy (server_t **self_p)
         *self_p = NULL;
     }
 }
- 
+
 int
 server_ping (char *key, void *server, void *socket)
 {
@@ -4595,7 +4595,7 @@ server_ping (char *key, void *server, void *socket)
     }
     return 0;
 }
- 
+
 int
 server_tickless (char *key, void *server, void *arg)
 {
@@ -4605,11 +4605,11 @@ server_tickless (char *key, void *server, void *arg)
         *tickless = self->ping_at;
     return 0;
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  后台处理程序信息
- 
+
 typedef struct {
     zctx_t *ctx;                //  上下文
     void *pipe;                 //  用于应用程序通信的套接字
@@ -4621,7 +4621,7 @@ typedef struct {
     zmsg_t *reply;              //  当前应答
     int64_t expires;            //  请求过期时间
 } agent_t;
- 
+
 agent_t *
 agent_new (zctx_t *ctx, void *pipe)
 {
@@ -4633,7 +4633,7 @@ agent_new (zctx_t *ctx, void *pipe)
     self->actives = zlist_new ();
     return self;
 }
- 
+
 void
 agent_destroy (agent_t **self_p)
 {
@@ -4648,22 +4648,22 @@ agent_destroy (agent_t **self_p)
         *self_p = NULL;
     }
 }
- 
+
 //  当服务端从列表中移除时，回调该函数。
- 
+
 static void
 s_server_free (void *argument)
 {
     server_t *server = (server_t *) argument;
     server_destroy (&server);
 }
- 
+
 void
 agent_control_message (agent_t *self)
 {
     zmsg_t *msg = zmsg_recv (self->pipe);
     char *command = zmsg_popstr (msg);
- 
+
     if (streq (command, "CONNECT")) {
         char *endpoint = zmsg_popstr (msg);
         printf ("I: connecting to %s...\n", endpoint);
@@ -4693,12 +4693,12 @@ agent_control_message (agent_t *self)
     free (command);
     zmsg_destroy (&msg);
 }
- 
+
 void
 agent_router_message (agent_t *self)
 {
     zmsg_t *reply = zmsg_recv (self->router);
- 
+
     //  第一帧是应答的服务端标识
     char *endpoint = zmsg_popstr (reply);
     server_t *server =
@@ -4711,7 +4711,7 @@ agent_router_message (agent_t *self)
     }
     server->ping_at = zclock_time () + PING_INTERVAL;
     server->expires = zclock_time () + SERVER_TTL;
- 
+
     //  第二帧是应答的编号
     char *sequence = zmsg_popstr (reply);
     if (atoi (sequence) == self->sequence) {
@@ -4722,16 +4722,16 @@ agent_router_message (agent_t *self)
     else
         zmsg_destroy (&reply);
 }
- 
- 
+
+
 //  ---------------------------------------------------------------------
 //  异步的后台代理会维护一个服务端池，处理请求和应答。
- 
+
 static void
 flcliapi_agent (void *args, zctx_t *ctx, void *pipe)
 {
     agent_t *self = agent_new (ctx, pipe);
- 
+
     zmq_pollitem_t items [] = {
         { self->pipe, 0, ZMQ_POLLIN, 0 },
         { self->router, 0, ZMQ_POLLIN, 0 }
@@ -4743,18 +4743,18 @@ flcliapi_agent (void *args, zctx_t *ctx, void *pipe)
         &&  tickless > self->expires)
             tickless = self->expires;
         zhash_foreach (self->servers, server_tickless, &tickless);
- 
+
         int rc = zmq_poll (items, 2,
             (tickless - zclock_time ()) * ZMQ_POLL_MSEC);
         if (rc == -1)
             break;              //  上下文对象被关闭
- 
+
         if (items [0].revents & ZMQ_POLLIN)
             agent_control_message (self);
- 
+
         if (items [1].revents & ZMQ_POLLIN)
             agent_router_message (self);
- 
+
         //  如果我们需要处理一项请求，将其发送给下一个可用的服务端
         if (self->request) {
             if (zclock_time () >= self->expires) {
@@ -4809,4 +4809,3 @@ ROUTER套接字的特点之一是会直接丢弃无法路由的消息，这就�
 ### 总结
 
 这一章中我们看到了很多可靠的请求-应答机制，每种机制都有其优劣性。大部分示例代码是可以直接用于生产环境的，不过还可以进一步优化。有两个模式会比较典型：使用了中间件的管家模式，以及未使用中间件的自由者模式。
-

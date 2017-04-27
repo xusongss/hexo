@@ -9,6 +9,7 @@ tags:
 |fork|fork创造的子进程是父进程的完整副本，复制了父亲进程的资源，包括内存的内容task_struct内容|
 |vfork|vfork创建的子进程与父进程共享数据段,而且由vfork()创建的子进程将先于父进程运行|
 |clone|linux创建线程一般使用的是pthread库 实际上linux也给我们提供了创建线程的系统调用，就是clone|
+<!--more-->
 ## fork
 ```
 #include <stdio.h>
@@ -269,4 +270,3 @@ sys_fork: SIGCHLD, 0, 0, NULL, NULL, 0
 sys_vfork: CLONE_VFORK | CLONE_VM | SIGCHLD, 0, 0, NULL, NULL, 0
 用户栈: 都是父进程的栈.
 parent_tidptr, child_ctidptr都是NULL.
-

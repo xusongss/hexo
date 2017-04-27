@@ -45,7 +45,7 @@ This work is licensed under a [Creative Commons Attribution-ShareAlike 3.0 Licen
 这就让我们回归到编程科学的问题上来。想要拯救这个世界，我们需要做两件事情：一，如何在任何地点连接任何两个应用程序；二、将这个解决方案用最为简单的方式包装起来，供程序员使用。
 
 也许这听起来太简单了，但事实确实如此。
-
+<!--more-->
 ### ZMQ简介
 
 ZMQ（ØMQ、ZeroMQ, 0MQ）看起来像是一套嵌入式的网络链接库，但工作起来更像是一个并发式的框架。它提供的套接字可以在多种协议中传输消息，如线程间、进程间、TCP、广播等。你可以使用套接字构建多对多的连接模式，如扇出、发布-订阅、任务分发、请求-应答等。ZMQ的快速足以胜任集群应用产品。它的异步I/O机制让你能够构建多核应用程序，完成异步消息处理任务。ZMQ有着多语言支持，并能在几乎所有的操作系统上运行。ZMQ是[iMatix][]公司的产品，以LGPL开源协议发布。
@@ -85,15 +85,15 @@ git clone git://github.com/imatix/zguide.git
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
- 
+
 int main (void)
 {
     void *context = zmq_init (1);
- 
+
     //  与客户端通信的套接字
     void *responder = zmq_socket (context, ZMQ_REP);
     zmq_bind (responder, "tcp://*:5555");
- 
+
     while (1) {
         //  等待客户端请求
         zmq_msg_t request;
@@ -101,10 +101,10 @@ int main (void)
         zmq_recv (responder, &request, 0);
         printf ("收到 Hello\n");
         zmq_msg_close (&request);
- 
+
         //  做些“处理”
         sleep (1);
- 
+
         //  返回应答
         zmq_msg_t reply;
         zmq_msg_init_size (&reply, 5);
@@ -160,23 +160,23 @@ ZMQ使用C语言作为它参考手册的语言，本指南也以它作为示例�
 #include <string>
 #include <iostream>
 #include <unistd.h>
- 
+
 int main () {
     // 准备上下文和套接字
     zmq::context_t context (1);
     zmq::socket_t socket (context, ZMQ_REP);
     socket.bind ("tcp://*:5555");
- 
+
     while (true) {
         zmq::message_t request;
- 
+
         // 等待客户端请求
         socket.recv (&request);
         std::cout << "收到 Hello" << std::endl;
- 
+
         // 做一些“处理”
         sleep (1);
- 
+
         // 应答World
         zmq::message_t reply (5);
         memcpy ((void *) reply.data (), "World", 5);
@@ -198,21 +198,21 @@ int main () {
  * 从客户端接收Hello，并应答World
  * @author Ian Barber <ian(dot)barber(at)gmail(dot)com>
  */
- 
+
 $context = new ZMQContext(1);
- 
+
 // 与客户端通信的套接字
 $responder = new ZMQSocket($context, ZMQ::SOCKET_REP);
 $responder->bind("tcp://*:5555");
- 
+
 while(true) {
     // 等待客户端请求
     $request = $responder->recv();
     printf ("Received request: [%s]\n", $request);
- 
+
     // 做一些“处理”
     sleep (1);
- 
+
     // 应答World
     $responder->send("World");
 }
@@ -232,16 +232,16 @@ while(true) {
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
- 
+
 int main (void)
 {
     void *context = zmq_init (1);
- 
+
     //  连接至服务端的套接字
     printf ("正在连接至hello world服务端...\n");
     void *requester = zmq_socket (context, ZMQ_REQ);
     zmq_connect (requester, "tcp://localhost:5555");
- 
+
     int request_nbr;
     for (request_nbr = 0; request_nbr != 10; request_nbr++) {
         zmq_msg_t request;
@@ -250,7 +250,7 @@ int main (void)
         printf ("正在发送 Hello %d...\n", request_nbr);
         zmq_send (requester, &request, 0);
         zmq_msg_close (&request);
- 
+
         zmq_msg_t reply;
         zmq_msg_init (&reply);
         zmq_recv (requester, &reply, 0);
@@ -359,13 +359,13 @@ ZMQ目前有多个版本，而且仍在持续更新。如果你遇到了问题�
 // 返回当前ZMQ的版本号
 //
 #include "zhelpers.h"
- 
+
 int main (void)
 {
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
     printf ("当前ZMQ版本号为 %d.%d.%d\n", major, minor, patch);
- 
+
     return EXIT_SUCCESS;
 }
 ```
@@ -385,7 +385,7 @@ int main (void)
 //  发布随机气象信息
 //
 #include "zhelpers.h"
- 
+
 int main (void)
 {
     //  准备上下文和PUB套接字
@@ -393,7 +393,7 @@ int main (void)
     void *publisher = zmq_socket (context, ZMQ_PUB);
     zmq_bind (publisher, "tcp://*:5556");
     zmq_bind (publisher, "ipc://weather.ipc");
- 
+
     //  初始化随机数生成器
     srandom ((unsigned) time (NULL));
     while (1) {
@@ -402,7 +402,7 @@ int main (void)
         zipcode     = randof (100000);
         temperature = randof (215) - 80;
         relhumidity = randof (50) + 10;
- 
+
         //  向所有订阅者发送消息
         char update [20];
         sprintf (update, "%05d %d %d", zipcode, temperature, relhumidity);
@@ -459,20 +459,20 @@ int main (void)
 //  收集指定邮编的气象信息，并计算平均温度
 //
 #include "zhelpers.h"
- 
+
 int main (int argc, char *argv [])
 {
     void *context = zmq_init (1);
- 
+
     //  创建连接至服务端的套接字
     printf ("正在收集气象信息...\n");
     void *subscriber = zmq_socket (context, ZMQ_SUB);
     zmq_connect (subscriber, "tcp://localhost:5556");
- 
+
     //  设置订阅信息，默认为纽约，邮编10001
     char *filter = (argc > 1)? argv [1]: "10001 ";
     zmq_setsockopt (subscriber, ZMQ_SUBSCRIBE, filter, strlen (filter));
- 
+
     //  处理100条更新信息
     int update_nbr;
     long total_temp = 0;
@@ -486,7 +486,7 @@ int main (int argc, char *argv [])
     }
     printf ("地区邮编 '%s' 的平均温度为 %dF\n",
         filter, (int) (total_temp / update_nbr));
- 
+
     zmq_close (subscriber);
     zmq_term (context);
     return 0;
@@ -552,29 +552,29 @@ sys     0m2.290s
 //  发送一组任务给已建立连接的worker
 //
 #include "zhelpers.h"
- 
-int main (void) 
+
+int main (void)
 {
     void *context = zmq_init (1);
- 
+
     //  用于发送消息的套接字
     void *sender = zmq_socket (context, ZMQ_PUSH);
     zmq_bind (sender, "tcp://*:5557");
- 
+
     //  用于发送开始信号的套接字
     void *sink = zmq_socket (context, ZMQ_PUSH);
     zmq_connect (sink, "tcp://localhost:5558");
- 
+
     printf ("准备好worker后按任意键开始: ");
     getchar ();
     printf ("正在向worker分配任务...\n");
- 
+
     //  发送开始信号
     s_send (sink, "0");
- 
+
     //  初始化随机数生成器
     srandom ((unsigned) time (NULL));
- 
+
     //  发送100个任务
     int task_nbr;
     int total_msec = 0;     //  预计执行时间（毫秒）
@@ -589,7 +589,7 @@ int main (void)
     }
     printf ("预计执行时间: %d 毫秒\n", total_msec);
     sleep (1);              //  延迟一段时间，让任务分发完成
- 
+
     zmq_close (sink);
     zmq_close (sender);
     zmq_term (context);
@@ -655,30 +655,30 @@ int main (void)
 //  向结果采集器发送结果
 //
 #include "zhelpers.h"
- 
-int main (void) 
+
+int main (void)
 {
     void *context = zmq_init (1);
- 
+
     //  获取任务的套接字
     void *receiver = zmq_socket (context, ZMQ_PULL);
     zmq_connect (receiver, "tcp://localhost:5557");
- 
+
     //  发送结果的套接字
     void *sender = zmq_socket (context, ZMQ_PUSH);
     zmq_connect (sender, "tcp://localhost:5558");
- 
+
     //  循环处理任务
     while (1) {
         char *string = s_recv (receiver);
         //  输出处理进度
         fflush (stdout);
         printf ("%s.", string);
- 
+
         //  开始处理
         s_sleep (atoi (string));
         free (string);
- 
+
         //  发送结果
         s_send (sender, "");
     }
@@ -700,18 +700,18 @@ int main (void)
 //  从worker处收集处理结果
 //
 #include "zhelpers.h"
- 
-int main (void) 
+
+int main (void)
 {
     //  准备上下文和套接字
     void *context = zmq_init (1);
     void *receiver = zmq_socket (context, ZMQ_PULL);
     zmq_bind (receiver, "tcp://*:5558");
- 
+
     //  等待开始信号
     char *string = s_recv (receiver);
     free (string);
- 
+
     //  开始计时
     int64_t start_time = s_clock ();
 
@@ -727,9 +727,9 @@ int main (void)
         fflush (stdout);
     }
     //  计算并输出总执行时间
-    printf ("执行时间: %d 毫秒\n", 
+    printf ("执行时间: %d 毫秒\n",
         (int) (s_clock () - start_time));
- 
+
     zmq_close (receiver);
     zmq_term (context);
     return 0;
@@ -799,56 +799,56 @@ Total elapsed time: 1018 msec
 ```c
 //  注意：不要使用这段代码！
 static char *topic_str = "msg.x|";
- 
+
 void* pub_worker(void* arg){
     void *ctx = arg;
     assert(ctx);
- 
+
     void *qskt = zmq_socket(ctx, ZMQ_REP);
     assert(qskt);
- 
+
     int rc = zmq_connect(qskt, "inproc://querys");
     assert(rc == 0);
- 
+
     void *pubskt = zmq_socket(ctx, ZMQ_PUB);
     assert(pubskt);
- 
+
     rc = zmq_bind(pubskt, "inproc://publish");
     assert(rc == 0);
- 
+
     uint8_t cmd;
     uint32_t nb;
     zmq_msg_t topic_msg, cmd_msg, nb_msg, resp_msg;
- 
+
     zmq_msg_init_data(&topic_msg, topic_str, strlen(topic_str) , NULL, NULL);
- 
+
     fprintf(stdout,"WORKER: ready to recieve messages\n");
     //  注意：不要使用这段代码，它不能工作！
     //  e.g. topic_msg will be invalid the second time through
     while (1){
     zmq_send(pubskt, &topic_msg, ZMQ_SNDMORE);
- 
+
     zmq_msg_init(&cmd_msg);
     zmq_recv(qskt, &cmd_msg, 0);
     memcpy(&cmd, zmq_msg_data(&cmd_msg), sizeof(uint8_t));
     zmq_send(pubskt, &cmd_msg, ZMQ_SNDMORE);
     zmq_msg_close(&cmd_msg);
- 
+
     fprintf(stdout, "recieved cmd %u\n", cmd);
- 
+
     zmq_msg_init(&nb_msg);
     zmq_recv(qskt, &nb_msg, 0);
     memcpy(&nb, zmq_msg_data(&nb_msg), sizeof(uint32_t));
     zmq_send(pubskt, &nb_msg, 0);
     zmq_msg_close(&nb_msg);
- 
+
     fprintf(stdout, "recieved nb %u\n", nb);
- 
+
     zmq_msg_init_size(&resp_msg, sizeof(uint8_t));
     memset(zmq_msg_data(&resp_msg), 0, sizeof(uint8_t));
     zmq_send(qskt, &resp_msg, 0);
     zmq_msg_close(&resp_msg);
- 
+
     }
     return NULL;
 }
@@ -865,12 +865,12 @@ worker_thread (void *arg) {
     int rc;
     rc = zmq_connect (worker, "ipc://worker");
     assert (rc == 0);
- 
+
     void *broadcast = zmq_socket (context, ZMQ_PUB);
     assert (broadcast);
     rc = zmq_bind (broadcast, "ipc://publish");
     assert (rc == 0);
- 
+
     while (1) {
         char *part1 = s_recv (worker);
         char *part2 = s_recv (worker);
@@ -880,7 +880,7 @@ worker_thread (void *arg) {
         s_send (broadcast, part2);
         free (part1);
         free (part2);
- 
+
         s_send (worker, "OK");
     }
     return NULL;
@@ -1231,5 +1231,3 @@ wuclient 56789 &
 
   [iMatix]: http://www.imatix.com/
   [AMQP]: http://www.amqp.org/
-
-

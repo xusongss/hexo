@@ -27,7 +27,7 @@ training.github.com
 github.io
 ```
 
-
+<!--more-->
 
 ### 用python语言使用requests+beautifulsoup制作一个小爬虫
 

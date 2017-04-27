@@ -8,7 +8,7 @@ tags:
 Atom 是 Github 开发的开源跨平台的编辑器，原生支持编辑 Markdown 文档
 
 ## 自动完成 Markdown 语法标记
-
+<!--more-->
 ### 代码段效果-code
 输入 `c + Enter`
 
