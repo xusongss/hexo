@@ -9,8 +9,6 @@ description: 天黑请闭眼
 author: 徐松
 language: zh-Hans
 timezone: Asia/Shanghai
-
-mathjax: true
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
 url: http://yoursite.com
@@ -63,6 +61,9 @@ pagination_dir: page
 
 # Extensions
 ## Plugins: https://hexo.io/plugins/
+#plugins:
+#- hexo-math
+
 ## Themes: https://hexo.io/themes/
 #theme: landscape
 theme: next
